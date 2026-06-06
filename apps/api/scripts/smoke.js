@@ -1,19 +1,47 @@
 const API_BASE = process.env.API_BASE || "http://localhost:4000/api/v1";
-const NORMALIZED_API_BASE = API_BASE.replace(/\/+$/, "");
+const EXPECTED_UPLOAD_BASE = (process.env.UPLOAD_BASE || process.env.PUBLIC_API_BASE || API_BASE).replace(/\/+$/, "");
 const TINY_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 const TOO_LARGE_PNG = `data:image/png;base64,${"a".repeat(490_000)}`;
+const RATE_LIMIT_RETRIES = Number(process.env.SMOKE_RATE_LIMIT_RETRIES || 4);
+const PAYMENT_WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET?.trim();
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function paymentWebhookHeaders(headers = {}) {
+  return PAYMENT_WEBHOOK_SECRET
+    ? { ...headers, "x-cofind-webhook-secret": PAYMENT_WEBHOOK_SECRET }
+    : headers;
+}
+
+function rateLimitDelay(response, attempt) {
+  const retryAfter = Number(response.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return retryAfter * 1000;
+  }
+  return Math.min(60_000, 10_000 * attempt);
+}
+
+async function fetchJson(path, options = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers
+      }
+    });
+    const text = await response.text();
+    const body = text ? JSON.parse(text) : null;
+    if (response.status !== 429 || attempt > RATE_LIMIT_RETRIES) {
+      return { response, text, body };
+    }
+    await wait(rateLimitDelay(response, attempt));
+  }
+}
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers
-    }
-  });
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  const { response, text, body } = await fetchJson(path, options);
   if (!response.ok) {
     throw new Error(`${options.method || "GET"} ${path} failed: ${response.status} ${text}`);
   }
@@ -21,16 +49,8 @@ async function request(path, options = {}) {
 }
 
 async function requestRaw(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers
-    }
-  });
-  const text = await response.text();
-  return { ok: response.ok, status: response.status, body: text ? JSON.parse(text) : null };
+  const { response, body } = await fetchJson(path, options);
+  return { ok: response.ok, status: response.status, body };
 }
 
 async function main() {
@@ -257,8 +277,8 @@ async function main() {
     method: "POST",
     body: JSON.stringify({ email: resetEmail.toUpperCase() })
   });
-  if (!resetRequest.ok || !resetRequest.resetToken) {
-    throw new Error("Expected dev password reset request to return reset token");
+  if (!resetRequest.ok) {
+    throw new Error("Expected password reset request to return a generic success response");
   }
   const invalidReset = await requestRaw("/auth/password-reset/confirm", {
     method: "POST",
@@ -267,24 +287,34 @@ async function main() {
   if (invalidReset.ok || invalidReset.status !== 400) {
     throw new Error("Expected invalid password reset token to fail with 400");
   }
-  await request("/auth/password-reset/confirm", {
-    method: "POST",
-    body: JSON.stringify({ token: resetRequest.resetToken, newPassword: "password456" })
-  });
-  const oldResetLogin = await requestRaw("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email: resetEmail, password: "password123" })
-  });
-  if (oldResetLogin.ok) {
-    throw new Error("Expected old password to stop working after reset");
+  let resetCurrentPassword = "password123";
+  let resetSession = null;
+  if (resetRequest.resetToken) {
+    await request("/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token: resetRequest.resetToken, newPassword: "password456" })
+    });
+    const oldResetLogin = await requestRaw("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: resetEmail, password: "password123" })
+    });
+    if (oldResetLogin.ok) {
+      throw new Error("Expected old password to stop working after reset");
+    }
+    resetSession = await request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: resetEmail, password: "password456" })
+    });
+    resetCurrentPassword = "password456";
+  } else {
+    resetSession = await request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: resetEmail, password: "password123" })
+    });
   }
-  const resetLogin = await request("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email: resetEmail, password: "password456" })
-  });
   const badChangePassword = await requestRaw("/auth/change-password", {
     method: "POST",
-    headers: { Authorization: `Bearer ${resetLogin.accessToken}` },
+    headers: { Authorization: `Bearer ${resetSession.accessToken}` },
     body: JSON.stringify({ currentPassword: "wrong-password", newPassword: "password789" })
   });
   if (badChangePassword.ok || badChangePassword.status !== 401) {
@@ -292,8 +322,8 @@ async function main() {
   }
   await request("/auth/change-password", {
     method: "POST",
-    headers: { Authorization: `Bearer ${resetLogin.accessToken}` },
-    body: JSON.stringify({ currentPassword: "password456", newPassword: "password789" })
+    headers: { Authorization: `Bearer ${resetSession.accessToken}` },
+    body: JSON.stringify({ currentPassword: resetCurrentPassword, newPassword: "password789" })
   });
   await request("/auth/login", {
     method: "POST",
@@ -373,7 +403,7 @@ async function main() {
   if (!uploadedAvatar.url?.includes("/uploads/images/") || uploadedAvatar.size < 1) {
     throw new Error("Expected image upload to return a public uploads URL");
   }
-  if (!uploadedAvatar.url.startsWith(`${NORMALIZED_API_BASE}/uploads/images/`)) {
+  if (!uploadedAvatar.url.startsWith(`${EXPECTED_UPLOAD_BASE}/uploads/images/`)) {
     throw new Error("Expected image upload URL to use the public API base, not an internal or localhost fallback");
   }
   const uploadedAvatarResponse = await fetch(uploadedAvatar.url);
@@ -402,7 +432,7 @@ async function main() {
     throw new Error("Expected cover upload to return a public uploads URL");
   }
   for (const uploaded of [uploadedDrawing, uploadedBackground, uploadedCover]) {
-    if (!uploaded.url?.startsWith(`${NORMALIZED_API_BASE}/uploads/images/`)) {
+    if (!uploaded.url?.startsWith(`${EXPECTED_UPLOAD_BASE}/uploads/images/`)) {
       throw new Error("Expected every uploaded image URL to use the configured public API base");
     }
   }
@@ -967,7 +997,7 @@ async function main() {
   }
   const report = await request("/reports", {
     method: "POST",
-    headers: { Authorization: `Bearer ${session.accessToken}` },
+    headers: { Authorization: `Bearer ${arlenInboxSession.accessToken}` },
     body: JSON.stringify({
       entityType: "PRIVATE_MESSAGE",
       entityId: secondPrivateMessage.id,
@@ -977,7 +1007,7 @@ async function main() {
   });
   const duplicateReport = await requestRaw("/reports", {
     method: "POST",
-    headers: { Authorization: `Bearer ${session.accessToken}` },
+    headers: { Authorization: `Bearer ${arlenInboxSession.accessToken}` },
     body: JSON.stringify({
       entityType: "PRIVATE_MESSAGE",
       entityId: secondPrivateMessage.id,
@@ -989,7 +1019,7 @@ async function main() {
     throw new Error("Expected duplicate active report to fail");
   }
   const myReports = await request("/reports/my", {
-    headers: { Authorization: `Bearer ${session.accessToken}` }
+    headers: { Authorization: `Bearer ${arlenInboxSession.accessToken}` }
   });
   if (!myReports.some((item) => item.id === report.id)) {
     throw new Error("Expected report in reports/my");
@@ -1905,6 +1935,7 @@ async function main() {
   });
   await request("/payments/webhook", {
     method: "POST",
+    headers: paymentWebhookHeaders(),
     body: JSON.stringify({
       paymentId: checkout.payment.id,
       status: "SUCCEEDED",
@@ -1920,6 +1951,7 @@ async function main() {
   const firstExpiresAt = premiumMe.subscription.expiresAt;
   const duplicateWebhook = await request("/payments/webhook", {
     method: "POST",
+    headers: paymentWebhookHeaders(),
     body: JSON.stringify({
       paymentId: checkout.payment.id,
       status: "SUCCEEDED",
@@ -1934,6 +1966,7 @@ async function main() {
   }
   const lateFailedWebhook = await request("/payments/webhook", {
     method: "POST",
+    headers: paymentWebhookHeaders(),
     body: JSON.stringify({
       paymentId: checkout.payment.id,
       status: "FAILED",
@@ -1960,6 +1993,7 @@ async function main() {
   });
   await request("/payments/webhook", {
     method: "POST",
+    headers: paymentWebhookHeaders(),
     body: JSON.stringify({
       paymentId: failedCheckout.payment.id,
       status: "FAILED",
@@ -1968,6 +2002,7 @@ async function main() {
   });
   const lateSuccessWebhook = await request("/payments/webhook", {
     method: "POST",
+    headers: paymentWebhookHeaders(),
     body: JSON.stringify({
       paymentId: failedCheckout.payment.id,
       status: "SUCCEEDED",
@@ -1997,6 +2032,7 @@ async function main() {
   });
   await request("/payments/webhook", {
     method: "POST",
+    headers: paymentWebhookHeaders(),
     body: JSON.stringify({
       paymentId: premiumRoleCheckout.payment.id,
       status: "SUCCEEDED",

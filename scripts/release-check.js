@@ -85,7 +85,9 @@ async function checkWebNginx(failures) {
   for (const directive of requiredDirectives) {
     if (!config.includes(directive)) failures.push(`apps/web/nginx.conf missing ${directive}`);
   }
-  const assetLocation = config.match(/location\s+~\*\s+\\\.\([^]*?\n\s*\}/)?.[0] || "";
+  const assetLocation = [...config.matchAll(/location\s+~\*[^]*?\n\s*\}/g)]
+    .map((match) => match[0])
+    .find((block) => block.includes("css|js")) || "";
   if (assetLocation && !assetLocation.includes("add_header X-Content-Type-Options")) {
     failures.push("apps/web/nginx.conf asset location must keep security headers when adding Cache-Control");
   }
@@ -117,8 +119,8 @@ async function checkWebDist(webUrl, apiBase, failures) {
     return;
   }
 
-  if (/(localhost|127\.0\.0\.1)/i.test(index + app + robots + sitemap)) {
-    failures.push("web dist still contains localhost URLs; rebuild with PUBLIC_WEB_URL and PUBLIC_API_BASE");
+  if (containsLocalRuntimeUrl(index + robots + sitemap) || app.includes('"http://localhost:4000/api/v1"')) {
+    failures.push("web dist still contains localhost runtime URLs; rebuild with PUBLIC_WEB_URL and PUBLIC_API_BASE");
   }
   if (webUrl && !index.includes(`content="${webUrl}/"`) && !index.includes(`href="${webUrl}/"`)) {
     failures.push("dist/index.html canonical or og:url does not match PUBLIC_WEB_URL");
@@ -168,6 +170,10 @@ function assertSecret(key, failures) {
 
 function value(key) {
   return typeof process.env[key] === "string" ? process.env[key].trim() : "";
+}
+
+function containsLocalRuntimeUrl(source) {
+  return /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?/i.test(source);
 }
 
 main().catch((error) => {

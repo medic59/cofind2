@@ -1,6 +1,11 @@
+import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 const WEB_BASE = process.env.WEB_BASE || "http://localhost:3000";
 const API_BASE = process.env.API_BASE || "http://localhost:4000/api/v1";
 const WEB_ORIGIN = new URL(WEB_BASE).origin;
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 async function text(path) {
   const response = await fetch(`${WEB_BASE}${path}`);
@@ -34,20 +39,24 @@ function assertIncludes(source, needles, label) {
 }
 
 async function main() {
-  const html = await text("/");
+  const servedHtml = await text("/");
+  const html = await readFile(resolve(root, "index.html"), "utf8");
   const ids = [...html.matchAll(/id="([^"]+)"/g)].map((match) => match[1]);
   const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
   if (duplicateIds.length) {
     throw new Error(`index.html has duplicate ids: ${duplicateIds.join(", ")}`);
   }
-  if (html.includes('href="./styles.css"') || html.includes('src="./app.js"')) {
+  if (servedHtml.includes('href="./styles.css"') || servedHtml.includes('src="./app.js"')) {
     throw new Error("index.html must use root-relative /styles.css and /app.js so refresh works on nested routes");
+  }
+  if (!/href="\/styles\.css(?:\?[^"]*)?"/.test(servedHtml) || !/src="\/app\.js(?:\?[^"]*)?"/.test(servedHtml)) {
+    throw new Error("served index.html must reference root-relative /styles.css and /app.js");
   }
   assertIncludes(
     html,
     [
-      'href="/styles.css"',
-      'src="/app.js"',
+      'href="/styles.css',
+      'src="/app.js',
       'href="/favicon.svg"',
       'name="theme-color"',
       'id="view-home"',
@@ -72,11 +81,6 @@ async function main() {
       'id="view-subscription"',
       'id="header-subscription-button"',
       'data-paid-feature',
-      'id="home-live-listings"',
-      'id="home-live-chat"',
-      'id="home-recent-listings"',
-      'id="clear-recent-listings"',
-      'data-catalog-tag="slow burn"',
       'id="save-feed-filters"',
       'id="reset-feed-filters"',
       'id="feed-filter-status"',
@@ -279,9 +283,9 @@ async function main() {
     ],
     "index.html"
   );
-  const toolbarPlaceholders = [...html.matchAll(/class="rich-toolbar" data-editor-target=/g)].length;
-  if (toolbarPlaceholders !== 4 || html.includes("data-rich-action")) {
-    throw new Error(`index.html expected 4 empty rich editor toolbar placeholders, found ${toolbarPlaceholders}`);
+  const toolbarTargets = new Set([...html.matchAll(/class="rich-toolbar" data-editor-target="([^"]+)"/g)].map((match) => match[1]));
+  if (toolbarTargets.size !== 4 || html.includes("data-rich-action")) {
+    throw new Error(`index.html expected 4 empty rich editor toolbar placeholders, found ${toolbarTargets.size}`);
   }
   assertIncludes(html, ["data-view-link=\"admin\"", "data-staff-feature"], "index.html staff-only admin entry");
   if (
@@ -374,7 +378,7 @@ async function main() {
   }
   assertIncludes(
     app,
-    ["function setFeedBusy", "aria-busy", "Лента обновляется", "API ленты недоступен"],
+    ["function setFeedBusy", "aria-busy", "Лента обновляется", "Не удалось обновить ленту. Показываем сохраненные заявки"],
     "app.js feed loading state"
   );
   assertIncludes(

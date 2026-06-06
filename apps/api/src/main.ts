@@ -13,6 +13,7 @@ async function bootstrap() {
   loadDotEnv();
   assertRuntimeEnv();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.getHttpAdapter().getInstance().disable("x-powered-by");
   if (process.env.TRUST_PROXY === "true") {
     app.getHttpAdapter().getInstance().set("trust proxy", 1);
   }

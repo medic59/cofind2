@@ -89,10 +89,7 @@ export class SearchService {
       publishedAt: listing.publishedAt?.toISOString()
     }));
 
-    const indexTask = await this.meiliFetch(`/indexes/${indexName}`, {
-      method: "PATCH",
-      body: JSON.stringify({ primaryKey: "id" })
-    }).catch(async () => {
+    const indexTask = await this.meiliFetch(`/indexes/${indexName}`).catch(async () => {
       return this.meiliFetch("/indexes", {
         method: "POST",
         body: JSON.stringify({ uid: indexName, primaryKey: "id" })
