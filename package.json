@@ -1,0 +1,26 @@
+{
+  "name": "cofind2",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "api:dev:local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-api-dev.ps1",
+    "db:dev": "docker compose up -d postgres redis meilisearch",
+    "db:migrate": "pnpm --filter @cofind/api prisma:migrate",
+    "db:seed": "pnpm --filter @cofind/api seed",
+    "smoke": "node scripts/smoke.js",
+    "doctor": "node scripts/doctor.js",
+    "ux:audit": "node scripts/ux-audit.js",
+    "secrets:generate": "node scripts/generate-secrets.js",
+    "release:prepare": "node scripts/prepare-release.js",
+    "release:check": "node scripts/release-check.js"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "pnpm@9.1.0"
+}

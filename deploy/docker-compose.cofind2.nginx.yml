@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cofind}
+      POSTGRES_USER: ${POSTGRES_USER:-cofind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cofind} -d ${POSTGRES_DB:-cofind}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:?MEILISEARCH_MASTER_KEY is required}
+    volumes:
+      - meili-data:/meili_data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider http://127.0.0.1:7700/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env.production
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cofind}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cofind}?schema=public
+      MEILISEARCH_HOST: http://meilisearch:7700
+      MEILI_HOST: http://meilisearch:7700
+    volumes:
+      - uploads-data:/app/apps/api/uploads
+    ports:
+      - "127.0.0.1:${API_LOCAL_PORT:-4092}:4000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/api/v1/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?PUBLIC_WEB_URL is required}
+        PUBLIC_API_BASE: ${PUBLIC_API_BASE:?PUBLIC_API_BASE is required}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_LOCAL_PORT:-8092}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  meili-data:
+  uploads-data:

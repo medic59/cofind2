@@ -1,0 +1,780 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  USER
+  PREMIUM_USER
+  MODERATOR
+  ADMIN
+  OWNER
+}
+
+enum UserStatus {
+  ACTIVE
+  MUTED
+  RESTRICTED
+  TEMP_BANNED
+  BANNED
+  DELETED
+}
+
+enum ListingType {
+  COAUTHOR_SEARCH
+  ROLEPLAY_SEARCH
+  CHARACTER_SEARCH
+  TEAM_SEARCH
+  PLOT_SEARCH
+  BETA_READER_SEARCH
+  PROJECT_SEARCH
+  ARTIST_SEARCH
+  EDITOR_SEARCH
+  TRANSLATOR_SEARCH
+}
+
+enum AgeRating {
+  EVERYONE
+  TEEN
+  MATURE
+  ADULT
+}
+
+enum FandomMode {
+  FANDOM
+  ORIGINAL
+  MIXED
+}
+
+enum ListingVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  CLOSED
+  HIDDEN
+  DELETED
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+  HIDDEN
+}
+
+enum CatalogStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+enum ResponseStatus {
+  NEW
+  ACCEPTED
+  DECLINED
+  BLOCKED
+}
+
+enum SuggestionType {
+  TAG
+  FANDOM
+  CHARACTER
+  GENRE
+}
+
+enum SuggestionStatus {
+  NEW
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  MERGED
+}
+
+enum ReportEntityType {
+  PROFILE
+  LISTING
+  PRIVATE_MESSAGE
+  GLOBAL_CHAT_MESSAGE
+  TAG
+  FANDOM
+  CHARACTER
+  COMMENT
+  DRAWING
+}
+
+enum ReportReason {
+  SPAM
+  INSULTS
+  ADULT_UNMARKED
+  FORBIDDEN_CONTENT
+  FRAUD
+  RULES_VIOLATION
+  OTHER
+}
+
+enum ReportStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum BanType {
+  MUTE
+  TEMP_BAN
+  PERMANENT_BAN
+}
+
+enum NotificationType {
+  RESPONSE_CREATED
+  RESPONSE_ACCEPTED
+  MESSAGE_RECEIVED
+  REPORT_UPDATED
+  SUGGESTION_UPDATED
+  SYSTEM
+}
+
+enum ModerationActionType {
+  APPROVE
+  REJECT
+  HIDE
+  RESTORE
+  DELETE
+  BAN
+  UNBAN
+  MUTE
+  MERGE
+  UPDATE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+}
+
+enum AdPosition {
+  HOME
+  FEED
+  LISTING
+  SIDEBAR
+  DASHBOARD
+  CHAT
+  MOBILE
+}
+
+enum AdStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+}
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  passwordHash    String
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  role            UserRole   @default(USER)
+  status          UserStatus @default(ACTIVE)
+  isPremium       Boolean    @default(false)
+  emailVerifiedAt DateTime?
+  lastSeenAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  profile             Profile?
+  preferences         UserPreferences?
+  subscription        UserSubscription?
+  payments            Payment[]
+  listings            Listing[]
+  responsesSent       ListingResponse[]         @relation("SentResponses")
+  messagesSent        Message[]
+  globalMessages      GlobalChatMessage[]
+  participants        ConversationParticipant[]
+  reactions           MessageReaction[]
+  likes               Like[]
+  drawings            CanvasDrawing[]
+  notifications       Notification[]
+  reportsSubmitted    Report[]                  @relation("Reporter")
+  reportsHandled      Report[]                  @relation("Moderator")
+  blockedUsers        UserBlock[]               @relation("Blocker")
+  blockedByUsers      UserBlock[]               @relation("Blocked")
+  bansReceived        Ban[]                     @relation("BannedUser")
+  bansIssued          Ban[]                     @relation("BanIssuer")
+  bansRevoked         Ban[]                     @relation("BanRevoker")
+  suggestions         ModerationSuggestion[]    @relation("SuggestionAuthor")
+  suggestionsReviewed ModerationSuggestion[]    @relation("SuggestionReviewer")
+  moderationActions   ModerationAction[]        @relation("ModerationActor")
+  auditLogs           AuditLog[]                @relation("AuditActor")
+
+  @@index([role])
+  @@index([status])
+}
+
+model Profile {
+  id                       String   @id @default(uuid())
+  userId                   String   @unique
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username                 String   @unique
+  displayName              String
+  avatarUrl                String?
+  coverImageUrl            String?
+  bio                      String?  @db.Text
+  timezone                 String   @default("Europe/Moscow")
+  writingStyle             String?
+  literacyLevel            String?
+  preferredPostLength      String?
+  activityLevel            String?
+  favoriteGenres           String[] @default([])
+  favoriteFandoms          String[] @default([])
+  favoriteCharacters       String[] @default([])
+  communicationPreferences String?
+  privacySettings          Json     @default("{}")
+  socialLinks              Json     @default("{}")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([username])
+}
+
+model UserPreferences {
+  id                          String   @id @default(uuid())
+  userId                      String   @unique
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme                       String   @default("system")
+  accentColor                 String   @default("#7a5cff")
+  secondaryColor              String   @default("#2f7d63")
+  textColor                   String   @default("#24263a")
+  fontSize                    String   @default("medium")
+  fontFamily                  String   @default("inter")
+  dashboardBackgroundType     String   @default("plain")
+  dashboardBackgroundColor    String?
+  dashboardBackgroundImage    String?
+  dashboardBackgroundOverlay  Int      @default(20)
+  dashboardBackgroundBlur     Int      @default(0)
+  dashboardBackgroundPosition String   @default("center")
+  cardStyle                   String   @default("soft")
+  borderRadius                Int      @default(8)
+  density                     String   @default("comfortable")
+  contentWidth                String   @default("wide")
+  showDecorations             Boolean  @default(true)
+  animationLevel              String   @default("normal")
+  showAdultContent            Boolean  @default(false)
+  updatedAt                   DateTime @updatedAt
+}
+
+model Listing {
+  id               String            @id @default(uuid())
+  authorId         String
+  author           User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  type             ListingType
+  title            String
+  slug             String            @unique
+  body             String            @db.Text
+  ageRating        AgeRating         @default(EVERYONE)
+  fandomMode       FandomMode        @default(ORIGINAL)
+  visibility       ListingVisibility @default(PUBLIC)
+  status           ListingStatus     @default(DRAFT)
+  moderationStatus ModerationStatus  @default(PENDING)
+
+  meta        ListingMeta?
+  publishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tags       TagsOnListings[]
+  genres     GenresOnListings[]
+  fandoms    FandomsOnListings[]
+  characters CharactersOnListings[]
+  responses  ListingResponse[]
+  reports    Report[]               @relation("ListingReports")
+
+  @@index([authorId])
+  @@index([type, status, moderationStatus])
+  @@index([ageRating])
+  @@index([publishedAt])
+}
+
+model ListingMeta {
+  id                    String  @id @default(uuid())
+  listingId             String  @unique
+  listing               Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  preferredPairing      String?
+  desiredRole           String?
+  canonOrOc             String?
+  genderPreferences     String?
+  writingStyle          String?
+  postLengthExpectation String?
+  activityExpectation   String?
+  grammarExpectation    String?
+  hardLimits            String? @db.Text
+  softPreferences       String? @db.Text
+  plotNotes             String? @db.Text
+  expectedDuration      String?
+  communicationFormat   String?
+  collaborationRules    String? @db.Text
+  sampleText            String? @db.Text
+}
+
+model ListingResponse {
+  id        String         @id @default(uuid())
+  listingId String
+  listing   Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User           @relation("SentResponses", fields: [senderId], references: [id], onDelete: Cascade)
+  message   String         @db.Text
+  status    ResponseStatus @default(NEW)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([listingId, senderId])
+  @@index([senderId, status])
+}
+
+model Tag {
+  id             String           @id @default(uuid())
+  slug           String           @unique
+  name           String           @unique
+  description    String?          @db.Text
+  seoTitle       String?
+  seoDescription String?
+  aliases        String[]         @default([])
+  status         CatalogStatus    @default(APPROVED)
+  listings       TagsOnListings[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model Genre {
+  id             String             @id @default(uuid())
+  slug           String             @unique
+  name           String             @unique
+  description    String?            @db.Text
+  seoTitle       String?
+  seoDescription String?
+  aliases        String[]           @default([])
+  status         CatalogStatus      @default(APPROVED)
+  listings       GenresOnListings[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model Fandom {
+  id             String              @id @default(uuid())
+  slug           String              @unique
+  name           String              @unique
+  description    String?             @db.Text
+  seoTitle       String?
+  seoDescription String?
+  aliases        String[]            @default([])
+  status         CatalogStatus       @default(APPROVED)
+  listings       FandomsOnListings[]
+  characters     Character[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model Character {
+  id             String                 @id @default(uuid())
+  fandomId       String?
+  fandom         Fandom?                @relation(fields: [fandomId], references: [id], onDelete: SetNull)
+  slug           String                 @unique
+  name           String
+  description    String?                @db.Text
+  seoTitle       String?
+  seoDescription String?
+  aliases        String[]               @default([])
+  status         CatalogStatus          @default(PENDING)
+  listings       CharactersOnListings[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([fandomId])
+}
+
+model TagsOnListings {
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, tagId])
+}
+
+model GenresOnListings {
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  genreId   String
+  genre     Genre   @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, genreId])
+}
+
+model FandomsOnListings {
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  fandomId  String
+  fandom    Fandom  @relation(fields: [fandomId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, fandomId])
+}
+
+model CharactersOnListings {
+  listingId   String
+  listing     Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, characterId])
+}
+
+model Conversation {
+  id           String                    @id @default(uuid())
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  joinedAt       DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id              String            @id @default(uuid())
+  conversationId  String
+  conversation    Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId        String
+  sender          User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text            String            @db.Text
+  isDeleted       Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  reactions       MessageReaction[]
+  quotesAsSource  MessageQuote[]    @relation("QuotedMessage")
+  quotesAsMessage MessageQuote[]    @relation("MessageQuote")
+  drawings        CanvasDrawing[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model GlobalChatMessage {
+  id              String            @id @default(uuid())
+  senderId        String
+  sender          User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  room            String            @default("general")
+  text            String            @db.Text
+  isDeleted       Boolean           @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  reactions       MessageReaction[]
+  quotesAsSource  MessageQuote[]    @relation("QuotedGlobalMessage")
+  quotesAsMessage MessageQuote[]    @relation("GlobalMessageQuote")
+  drawings        CanvasDrawing[]
+
+  @@index([senderId])
+  @@index([room, createdAt])
+  @@index([createdAt])
+}
+
+model MessageReaction {
+  id              String             @id @default(uuid())
+  messageId       String?
+  message         Message?           @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  globalMessageId String?
+  globalMessage   GlobalChatMessage? @relation(fields: [globalMessageId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji           String
+  createdAt       DateTime           @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@unique([globalMessageId, userId, emoji])
+  @@unique([globalMessageId, userId])
+  @@index([userId])
+}
+
+model MessageQuote {
+  id                    String             @id @default(uuid())
+  messageId             String?
+  message               Message?           @relation("MessageQuote", fields: [messageId], references: [id], onDelete: Cascade)
+  globalMessageId       String?
+  globalMessage         GlobalChatMessage? @relation("GlobalMessageQuote", fields: [globalMessageId], references: [id], onDelete: Cascade)
+  quotedMessageId       String?
+  quotedMessage         Message?           @relation("QuotedMessage", fields: [quotedMessageId], references: [id], onDelete: SetNull)
+  quotedGlobalMessageId String?
+  quotedGlobalMessage   GlobalChatMessage? @relation("QuotedGlobalMessage", fields: [quotedGlobalMessageId], references: [id], onDelete: SetNull)
+  quotedTextSnapshot    String             @db.Text
+  createdAt             DateTime           @default(now())
+}
+
+model CanvasDrawing {
+  id              String             @id @default(uuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId       String?
+  message         Message?           @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  globalMessageId String?
+  globalMessage   GlobalChatMessage? @relation(fields: [globalMessageId], references: [id], onDelete: Cascade)
+  imageUrl        String
+  width           Int                @default(400)
+  height          Int                @default(300)
+  createdAt       DateTime           @default(now())
+
+  @@index([userId])
+}
+
+model Like {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, entityType, entityId])
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  description String
+  isRead      Boolean          @default(false)
+  linkPath    String?
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+model Report {
+  id                String           @id @default(uuid())
+  reporterId        String
+  reporter          User             @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  listingId         String?
+  listing           Listing?         @relation("ListingReports", fields: [listingId], references: [id], onDelete: SetNull)
+  entityType        ReportEntityType
+  entityId          String
+  reason            ReportReason
+  comment           String?          @db.Text
+  status            ReportStatus     @default(NEW)
+  moderatorId       String?
+  moderator         User?            @relation("Moderator", fields: [moderatorId], references: [id], onDelete: SetNull)
+  resolutionComment String?          @db.Text
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([status, createdAt])
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model Ban {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation("BannedUser", fields: [userId], references: [id], onDelete: Cascade)
+  issuedById  String
+  issuedBy    User      @relation("BanIssuer", fields: [issuedById], references: [id], onDelete: Cascade)
+  revokedById String?
+  revokedBy   User?     @relation("BanRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+  type        BanType
+  reason      String    @db.Text
+  startsAt    DateTime  @default(now())
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, type, expiresAt])
+}
+
+model ModerationSuggestion {
+  id               String           @id @default(uuid())
+  authorId         String
+  author           User             @relation("SuggestionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reviewedById     String?
+  reviewedBy       User?            @relation("SuggestionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  type             SuggestionType
+  title            String
+  description      String?          @db.Text
+  sourceUrl        String?
+  moderatorComment String?          @db.Text
+  targetEntityId   String?
+  mergedIntoId     String?
+  status           SuggestionStatus @default(NEW)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([type, status])
+  @@index([authorId])
+}
+
+model ModerationAction {
+  id         String               @id @default(uuid())
+  actorId    String
+  actor      User                 @relation("ModerationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  action     ModerationActionType
+  entityType String
+  entityId   String
+  reason     String?              @db.Text
+  metadata   Json                 @default("{}")
+  createdAt  DateTime             @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
+
+model SubscriptionPlan {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  description  String   @db.Text
+  priceCents   Int
+  currency     String   @default("RUB")
+  durationDays Int
+  features     Json     @default("{}")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions UserSubscription[]
+  payments      Payment[]
+}
+
+model UserSubscription {
+  id         String             @id @default(uuid())
+  userId     String             @unique
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId     String
+  plan       SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status     SubscriptionStatus @default(ACTIVE)
+  startedAt  DateTime           @default(now())
+  expiresAt  DateTime
+  canceledAt DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([status, expiresAt])
+}
+
+model Payment {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId            String?
+  plan              SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  provider          String
+  providerPaymentId String?
+  amountCents       Int
+  currency          String            @default("RUB")
+  status            PaymentStatus     @default(PENDING)
+  metadata          Json              @default("{}")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([userId, status])
+}
+
+model AdPlacement {
+  id              String     @id @default(uuid())
+  name            String
+  position        AdPosition
+  status          AdStatus   @default(DRAFT)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  target          Json       @default("{}")
+  impressionLimit Int?
+  impressions     Int        @default(0)
+  clickUrl        String?
+  imageUrl        String?
+  htmlCode        String?    @db.Text
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([position, status])
+}
+
+model SeoPage {
+  id            String   @id @default(uuid())
+  path          String   @unique
+  title         String
+  description   String
+  h1            String
+  canonical     String?
+  ogTitle       String?
+  ogDescription String?
+  ogImage       String?
+  indexable     Boolean  @default(true)
+  seoText       String?  @db.Text
+  breadcrumbs   Json     @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}

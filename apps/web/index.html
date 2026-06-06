@@ -1,0 +1,2019 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cofind 2 - поиск соавторов и ролевых партнеров</title>
+    <meta
+      name="description"
+      content="Cofind 2 - творческая платформа для поиска соавторов, соигроков, фандомных партнеров и команд."
+    />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:title" content="Cofind 2" />
+    <meta property="og:description" content="Найдите партнера для фанфика, ориджинала, ролевой игры или творческого проекта." />
+    <meta property="og:url" content="http://localhost:3000/" />
+    <meta name="cofind-api-base" content="http://localhost:4000/api/v1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https:; connect-src 'self' http: https: ws: wss:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    />
+    <link rel="canonical" href="http://localhost:3000/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#2fbf9f" />
+    <script src="/route-guard.js?v=route-shell-20260531"></script>
+    <style id="route-critical-style">
+      html[data-initial-view] .view { display: none !important; }
+      html[data-initial-view="home"] #view-home,
+      html[data-initial-view="feed"] #view-feed,
+      html[data-initial-view="listing"] #view-listing,
+      html[data-initial-view="new-listing"] #view-new-listing,
+      html[data-initial-view="me"] #view-me,
+      html[data-initial-view="profile"] #view-profile,
+      html[data-initial-view="appearance"] #view-appearance,
+      html[data-initial-view="chat"] #view-chat,
+      html[data-initial-view="auth"] #view-auth,
+      html[data-initial-view="subscription"] #view-subscription,
+      html[data-initial-view="admin"] #view-admin,
+      html[data-initial-view="suggestions"] #view-suggestions,
+      html[data-initial-view="help"] #view-help,
+      html[data-initial-view="rules"] #view-rules,
+      html[data-initial-view="privacy"] #view-privacy,
+      html[data-initial-view="contacts"] #view-contacts,
+      html[data-initial-view="inbox"] #view-inbox,
+      html[data-initial-view="report"] #view-report { display: block !important; }
+    </style>
+    <link rel="stylesheet" href="/styles.css?v=chat-ux-20260531" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Перейти к контенту</a>
+    <header class="topbar">
+      <a class="brand" href="/" data-view-link="home" aria-label="Cofind 2">
+        <span class="brand-mark">C2</span>
+        <span>
+          <strong>Cofind 2</strong>
+          <small>creative partner finder</small>
+        </span>
+      </a>
+      <button
+        class="mobile-menu-toggle"
+        id="mobile-menu-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="topbar-menu"
+      >
+        <span aria-hidden="true"></span>
+        <span>Меню</span>
+      </button>
+      <div class="topbar-menu" id="topbar-menu">
+        <nav class="main-nav" id="main-nav" aria-label="Основная навигация">
+          <a href="/feed" data-view-link="feed">Заявки</a>
+          <a href="/help" data-view-link="help">Как это работает</a>
+          <a href="/rules" data-view-link="rules">Правила</a>
+          <a href="/chat" data-view-link="chat">Чат</a>
+          <a class="is-hidden" href="/me" data-view-link="me" data-auth-feature>Личный кабинет</a>
+        </nav>
+        <div class="top-actions">
+          <a class="ghost-button" href="/auth" data-view-link="auth" id="auth-button">Войти</a>
+          <a class="ghost-button header-inbox is-hidden" href="/me/inbox" data-view-link="inbox" id="header-inbox-button" data-auth-feature>
+            Сообщения <span class="notification-badge is-hidden" id="header-notification-badge">0</span>
+          </a>
+          <a class="ghost-button is-hidden" href="/me/subscription" data-view-link="subscription" id="header-subscription-button" data-auth-feature data-paid-feature>Без рекламы</a>
+          <button class="ghost-button is-hidden" id="logout-button" type="button" data-auth-feature>Выйти</button>
+          <a class="primary-button" href="/me/listings/new" data-view-link="new-listing">Создать заявку</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="view is-active" id="view-home" aria-labelledby="home-title">
+        <div class="hero band home-hero">
+          <div class="hero-copy">
+            <p class="eyebrow">Платформа для творческого поиска</p>
+            <h1 id="home-title">Найдите соавтора, соигрока, бета-ридера или творческую команду</h1>
+            <p>
+              Подберите партнёра по фандому, жанру, персонажам, темпу письма и границам общения.
+            </p>
+            <div class="button-row hero-actions">
+              <a class="primary-button" href="/feed" data-view-link="feed">Смотреть заявки</a>
+              <a class="secondary-button" href="/me/listings/new" data-view-link="new-listing">Создать заявку</a>
+            </div>
+          </div>
+          <div class="hero-board" aria-label="Превью заявки Cofind 2">
+            <div class="board-toolbar">
+              <span></span><span></span><span></span>
+              <strong>Заявка Cofind</strong>
+            </div>
+            <article class="listing-card compact">
+              <div class="card-topline">
+                <span class="pill warm">ROLEPLAY_SEARCH</span>
+                <span>сегодня</span>
+              </div>
+              <h2>Ищу партнёра для urban fantasy с медленным раскрытием сюжета</h2>
+              <p>Посты 2-4 абзаца, мягкий темп, персонажная драма и заранее проговоренные границы.</p>
+              <div class="tags"><span>urban fantasy</span><span>slow burn</span><span>OC</span></div>
+            </article>
+            <div class="home-hero-points" aria-label="Что можно указать в заявке">
+              <span>Фандом</span>
+              <span>Жанр</span>
+              <span>Персонажи</span>
+              <span>Темп</span>
+              <span>Границы</span>
+            </div>
+          </div>
+        </div>
+
+        <section class="content-block home-section" aria-labelledby="home-audience-title">
+          <p class="eyebrow">Кому подходит Cofind</p>
+          <h2 id="home-audience-title">Для тех, кто ищет не просто чат, а подходящего творческого партнёра</h2>
+          <div class="persona-grid">
+            <article>
+              <strong>Авторам</strong>
+              <p>Найти соавтора, редактора, бета-ридера или человека, который поможет довести историю до финала.</p>
+            </article>
+            <article>
+              <strong>Ролевикам</strong>
+              <p>Подобрать соигрока по миру, динамике персонажей, размеру постов и комфортному темпу.</p>
+            </article>
+            <article>
+              <strong>Бета-ридерам</strong>
+              <p>Откликаться на тексты, где заранее понятны жанр, объём, ожидания и границы правок.</p>
+            </article>
+            <article>
+              <strong>Командам проектов</strong>
+              <p>Собирать художников, переводчиков, редакторов и участников под конкретную задачу.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="content-block home-section" aria-labelledby="home-listings-title">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow">Последние заявки</p>
+              <h2 id="home-listings-title">Посмотрите, кого уже ищут</h2>
+            </div>
+            <a class="ghost-button" href="/feed" data-view-link="feed">Вся лента</a>
+          </div>
+          <div class="home-listings" id="home-live-listings" aria-live="polite"></div>
+        </section>
+
+        <section class="content-block home-section" aria-labelledby="home-steps-title">
+          <p class="eyebrow">Как это работает</p>
+          <h2 id="home-steps-title">Три шага до совместного текста</h2>
+          <div class="steps">
+            <article><strong>1</strong><span>Создайте заявку: укажите фандом, жанр, персонажей, темп и ожидания.</span></article>
+            <article><strong>2</strong><span>Получите отклики от людей, которым подходит ваш формат и стиль общения.</span></article>
+            <article><strong>3</strong><span>Начните писать вместе в личных сообщениях или договоритесь о дальнейшей площадке.</span></article>
+          </div>
+        </section>
+
+        <section class="content-block home-section" aria-labelledby="home-better-title">
+          <p class="eyebrow">Почему это удобнее поиска в чатах</p>
+          <h2 id="home-better-title">Заявки помогают быстрее понять, подходите ли вы друг другу</h2>
+          <ul class="benefit-list">
+            <li>фильтры по фандомам, жанрам и персонажам;</li>
+            <li>понятные ожидания и границы до начала переписки;</li>
+            <li>карточки вместо хаотичной ленты сообщений;</li>
+            <li>жалобы и модерация для спорных ситуаций;</li>
+            <li>сохранение интересных заявок, чтобы вернуться позже.</li>
+          </ul>
+        </section>
+
+        <section class="content-block home-final-cta" aria-labelledby="home-final-title">
+          <div>
+            <p class="eyebrow">Готовы начать?</p>
+            <h2 id="home-final-title">Найдите своего творческого партнёра</h2>
+          </div>
+          <div class="button-row">
+            <a class="primary-button" href="/feed" data-view-link="feed">Смотреть заявки</a>
+            <a class="secondary-button" href="/me/listings/new" data-view-link="new-listing">Создать заявку</a>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="view-feed" aria-labelledby="feed-title">
+        <div class="page-heading feed-heading">
+          <div>
+            <p class="eyebrow">/feed</p>
+            <h1 id="feed-title">Заявки</h1>
+            <p class="page-lead">Найдите соавтора, соигрока, бета-ридера или творческую команду.</p>
+          </div>
+        </div>
+
+        <div class="feed-topbar" aria-label="Поиск и создание заявки">
+          <label class="feed-search-field">
+            <span>Поиск по заявкам</span>
+            <input id="feed-search" type="search" placeholder="Фандом, жанр, персонаж, автор..." />
+          </label>
+          <a class="primary-button feed-create-button" href="/me/listings/new" data-view-link="new-listing">Создать заявку</a>
+        </div>
+
+        <div class="feed-quick-filters" id="feed-quick-filters" aria-label="Быстрые фильтры">
+          <button type="button" data-feed-quick="all">Все</button>
+          <button type="button" data-feed-quick="type:COAUTHOR_SEARCH">Соавтор</button>
+          <button type="button" data-feed-quick="type:ROLEPLAY_SEARCH">Соигрок</button>
+          <button type="button" data-feed-quick="type:BETA_READER_SEARCH">Бета-ридер</button>
+          <button type="button" data-feed-quick="type:TEAM_SEARCH">Команда</button>
+          <button type="button" data-feed-quick="open">Открытые</button>
+          <button type="button" data-feed-quick="new">Новые</button>
+        </div>
+
+        <div class="feed-mobile-tools">
+          <button class="secondary-button feed-filter-toggle" type="button" id="feed-filter-toggle" aria-expanded="false" aria-controls="feed-filters">Фильтры</button>
+        </div>
+
+        <div class="app-layout feed-shell">
+          <aside class="filters feed-filters" id="feed-filters" aria-label="Фильтры заявок">
+            <label>
+              Тип заявки
+              <select id="feed-type">
+                <option value="all">Все типы</option>
+                <option value="COAUTHOR_SEARCH">Соавтор</option>
+                <option value="ROLEPLAY_SEARCH">Соигрок</option>
+                <option value="BETA_READER_SEARCH">Бета-ридер</option>
+                <option value="TEAM_SEARCH">Команда</option>
+              </select>
+            </label>
+            <label>
+              Рейтинг
+              <select id="feed-rating">
+                <option value="all">Любой</option>
+                <option value="EVERYONE">EVERYONE</option>
+                <option value="TEEN">TEEN</option>
+                <option value="MATURE">MATURE</option>
+                <option value="ADULT">ADULT 18+</option>
+              </select>
+            </label>
+            <label>
+              Жанр
+              <select id="feed-genre">
+                <option value="all">Любой жанр</option>
+              </select>
+            </label>
+            <label>
+              Фандом
+              <select id="feed-fandom">
+                <option value="all">Любой фандом</option>
+              </select>
+            </label>
+            <label>
+              Персонаж
+              <select id="feed-character">
+                <option value="all">Любой персонаж</option>
+              </select>
+            </label>
+            <label class="check-line">
+              <input id="feed-open" type="checkbox" />
+              Только открытые
+            </label>
+            <label class="check-line">
+              <input id="feed-new" type="checkbox" />
+              Только новые
+            </label>
+            <div class="button-row">
+              <button class="secondary-button" type="button" id="save-feed-filters">Сохранить</button>
+              <button class="ghost-button" type="button" id="reset-feed-filters">Сбросить</button>
+            </div>
+            <span class="muted-note" id="feed-filter-status">Фильтры можно сохранить в этом браузере.</span>
+          </aside>
+
+          <div class="feed-results">
+            <div class="feed-tools feed-results-header">
+              <div>
+                <strong id="feed-count">Заявки загружаются</strong>
+                <span>Сортируйте и уточняйте поиск без перезагрузки страницы.</span>
+              </div>
+              <div class="segmented" role="group" aria-label="Сортировка">
+                <button class="is-selected" data-sort="new">Новые</button>
+                <button data-sort="popular">Популярные</button>
+                <button data-sort="unanswered">Без ответа</button>
+              </div>
+            </div>
+            <div class="active-filters" id="feed-active-filters" aria-live="polite"></div>
+            <div class="listing-list" id="listing-list" aria-live="polite"></div>
+            <nav class="feed-pagination" id="feed-pagination" aria-label="Страницы заявок"></nav>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-listing" aria-labelledby="listing-title">
+        <button class="text-button" data-view-link="feed">Назад к ленте</button>
+        <article class="listing-detail">
+          <div class="detail-main">
+            <p class="eyebrow" id="listing-detail-kicker">Заявка Cofind 2</p>
+            <h1 id="listing-title">Ищу соавтора для камерного детектива в магической академии</h1>
+            <div class="meta-row" id="listing-detail-meta">
+              <span class="pill">COAUTHOR_SEARCH</span>
+              <span class="pill soft">MATURE</span>
+              <span>Автор: MiraInk</span>
+              <span>Открыта 2 дня назад</span>
+            </div>
+            <div id="listing-detail-body">
+              Хочу писать ориджинал с академической интригой, личными тайнами и аккуратной драмой. Нужен партнер,
+              которому нравится планировать арки, обсуждать сцены и держать темп без гонки.
+            </div>
+            <div class="detail-stats" id="listing-detail-stats" aria-label="Метрики заявки">
+              <article><strong>128</strong><span>лайков</span></article>
+              <article><strong>4</strong><span>отклика</span></article>
+              <article><strong>0</strong><span>жалоб</span></article>
+            </div>
+            <h2>Ожидания</h2>
+            <ul class="clean-list" id="listing-detail-expectations">
+              <li>Посты от 3 абзацев, грамотность важна, но без перфекционизма.</li>
+              <li>Комфортный темп: 2-3 ответа в неделю.</li>
+              <li>Люблю сюжетные заметки, цитирование и разбор динамики персонажей.</li>
+            </ul>
+            <div class="tags" id="listing-detail-tags"><span>детектив</span><span>магическая академия</span><span>slow burn</span><span>ориджинал</span></div>
+            <form class="response-panel" id="listing-response-form">
+              <div class="response-head">
+                <div>
+                  <strong>Отклик на заявку</strong>
+                  <span id="listing-response-status">Доступно для открытой заявки</span>
+                </div>
+                <button class="ghost-button" type="button" id="fill-response-template" disabled>Шаблон</button>
+              </div>
+              <label>Отклик на заявку
+                <div class="rich-toolbar" data-editor-target="listing-response-message" aria-label="Форматирование отклика"></div>
+                <textarea id="listing-response-message" rows="4" maxlength="4000" placeholder="Войдите, чтобы написать отклик." disabled></textarea>
+                <span class="char-counter" id="listing-response-counter">0 / 4000</span>
+              </label>
+              <div class="rich-preview is-hidden" id="listing-response-preview" aria-live="polite"></div>
+              <div class="button-row">
+                <button class="primary-button" type="submit" id="listing-response-submit" disabled>Отправить отклик</button>
+                <span class="muted-note" id="listing-response-note">Отклик появится у автора в разделе диалогов и откликов.</span>
+              </div>
+            </form>
+            <div class="button-row">
+              <button class="secondary-button" id="like-listing">♡ 128</button>
+              <button class="ghost-button" id="report-listing" type="button">Пожаловаться</button>
+            </div>
+          </div>
+          <aside class="detail-side">
+            <h2>Автор</h2>
+            <div class="profile-mini">
+              <div class="avatar large" id="listing-author-avatar">MI</div>
+              <div>
+                <strong id="listing-author-name">MiraInk</strong>
+                <span id="listing-author-pace">Темп: спокойный</span>
+                <span id="listing-author-style">Стиль: атмосферный</span>
+              </div>
+            </div>
+            <button class="secondary-button" id="open-author-profile" type="button">Профиль автора</button>
+            <button class="ghost-button" id="copy-listing-link" type="button">Скопировать ссылку</button>
+            <button class="ghost-button" id="block-author" type="button">Заблокировать автора</button>
+            <h2>Связанные страницы</h2>
+            <a href="/feed" id="listing-related-tag">Все заявки по тегу slow burn</a>
+            <a href="/feed" id="listing-related-world">Фандомы и персонажи</a>
+            <h2>Похожие заявки</h2>
+            <div class="related-listings" id="listing-related-list" aria-live="polite"></div>
+          </aside>
+        </article>
+      </section>
+
+      <section class="view" id="view-new-listing" aria-labelledby="new-listing-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/me/listings/new</p>
+            <h1 id="new-listing-title">Создание заявки</h1>
+            <p class="muted-note" id="listing-draft-status">Черновик новой заявки сохраняется локально в браузере.</p>
+          </div>
+        </div>
+        <form class="editor-grid" id="listing-form">
+          <section class="form-panel">
+            <label>Тип заявки
+              <select id="listing-type" required>
+                <option>ROLEPLAY_SEARCH</option>
+                <option>COAUTHOR_SEARCH</option>
+                <option>BETA_READER_SEARCH</option>
+                <option>TEAM_SEARCH</option>
+              </select>
+            </label>
+            <label>Заголовок
+              <input id="listing-title-input" required minlength="6" maxlength="140" value="Ищу партнера для сюжетной ролевой" />
+              <span class="char-counter" id="listing-title-counter">0 / 140</span>
+            </label>
+            <label>Описание
+              <div class="rich-toolbar" data-editor-target="listing-body-input" aria-label="Форматирование описания заявки"></div>
+              <textarea id="listing-body-input" rows="8" minlength="20" maxlength="4000">Опишите атмосферу, сюжет, ожидания, темп ответов и границы.</textarea>
+              <span class="char-counter" id="listing-body-counter">0 / 4000</span>
+            </label>
+            <div class="form-row">
+              <label>Рейтинг
+                <select id="listing-rating"><option>TEEN</option><option>EVERYONE</option><option>MATURE</option><option>ADULT</option></select>
+              </label>
+              <label>Статус
+                <select id="listing-status"><option>DRAFT</option><option>PUBLISHED</option></select>
+              </label>
+            </div>
+            <div class="listing-form-preview" id="listing-form-preview" aria-live="polite">
+              <div class="card-topline">
+                <span class="pill">ROLEPLAY_SEARCH</span>
+                <span>предпросмотр</span>
+              </div>
+              <h2>Ищу партнера для сюжетной ролевой</h2>
+              <p>Опишите атмосферу, сюжет, ожидания, темп ответов и границы.</p>
+              <div class="tags"><span>slow burn</span><span>OC</span></div>
+            </div>
+          </section>
+          <aside class="form-panel">
+            <h2>Теги и справочники</h2>
+            <h3>Теги</h3>
+            <div class="tags editable" id="listing-selected-tags">
+              <span>slow burn <button type="button" aria-label="Удалить slow burn">×</button></span>
+              <span>OC <button type="button" aria-label="Удалить OC">×</button></span>
+            </div>
+            <label>Добавить тег
+              <input id="suggestion-input" list="tag-options" placeholder="Начните вводить название" />
+            </label>
+            <datalist id="tag-options"></datalist>
+            <button class="secondary-button" type="button" id="add-listing-tag">Добавить тег</button>
+            <h3>Жанры</h3>
+            <div class="tags editable" id="listing-selected-genres"></div>
+            <label>Добавить жанр
+              <input id="listing-genre-input" list="genre-options" placeholder="Например: детектив" />
+            </label>
+            <datalist id="genre-options"></datalist>
+            <button class="secondary-button" type="button" id="add-listing-genre">Добавить жанр</button>
+            <h3>Фандомы</h3>
+            <div class="tags editable" id="listing-selected-fandoms"></div>
+            <label>Добавить фандом
+              <input id="listing-fandom-input" list="fandom-options" placeholder="Название фандома" />
+            </label>
+            <datalist id="fandom-options"></datalist>
+            <button class="secondary-button" type="button" id="add-listing-fandom">Добавить фандом</button>
+            <h3>Персонажи</h3>
+            <div class="tags editable" id="listing-selected-characters"></div>
+            <label>Добавить персонажа
+              <input id="listing-character-input" list="character-options" placeholder="Имя персонажа" />
+            </label>
+            <datalist id="character-options"></datalist>
+            <button class="secondary-button" type="button" id="add-listing-character">Добавить персонажа</button>
+            <button class="secondary-button" type="button" data-view-link="suggestions">Предложить новый</button>
+            <div class="notice">
+              ADULT/18+ заявки требуют предупреждения, скрываются от несовершеннолетних и уходят на усиленную модерацию.
+            </div>
+            <span class="muted-note" id="listing-form-note">Заполните заголовок и описание, чтобы сохранить заявку.</span>
+            <button class="primary-button" type="submit" id="listing-submit">Сохранить заявку</button>
+          </aside>
+        </form>
+      </section>
+
+      <section class="view" id="view-me" aria-labelledby="me-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/me</p>
+            <h1 id="me-title">Творческая студия</h1>
+          </div>
+          <button class="ghost-button" data-view-link="appearance">Настроить внешний вид</button>
+        </div>
+        <div class="dashboard-grid">
+          <section class="profile-cover" id="me-profile-cover">
+            <div class="avatar large" id="me-avatar">C2</div>
+            <h2 id="me-display-name">Загружаем профиль</h2>
+            <p id="me-bio">Подгружаем данные аккаунта. Если это заняло больше нескольких секунд, обновите страницу.</p>
+            <div class="tags" id="me-tags"><span>Профиль</span><span>Загрузка</span></div>
+            <div class="button-row">
+              <button class="ghost-button" id="open-my-public-profile" type="button">Публичный профиль</button>
+              <button class="ghost-button" id="copy-my-profile-link" type="button">Скопировать ссылку</button>
+            </div>
+          </section>
+          <section class="metric-grid" id="me-metrics">
+            <article><strong>...</strong><span>заявки</span></article>
+            <article><strong>...</strong><span>отклики</span></article>
+            <article><strong>...</strong><span>роль</span></article>
+            <article><strong>...</strong><span>уведомления</span></article>
+          </section>
+          <section class="content-block wide">
+            <div class="section-title">
+              <h2>Быстрые действия</h2>
+            </div>
+            <div class="quick-actions">
+              <button data-view-link="new-listing">Создать заявку</button>
+              <button data-view-link="inbox">Диалоги</button>
+              <button data-view-link="subscription" class="is-hidden" data-paid-feature>Подписка</button>
+              <button data-view-link="suggestions">Предложения</button>
+              <button class="is-hidden" data-view-link="admin" data-staff-feature>Модерация</button>
+              <button class="is-hidden" data-view-link="admin" data-owner-admin-feature>Настройки запуска</button>
+            </div>
+          </section>
+          <section class="content-block wide account-role-panel" id="account-role-panel">
+            <div class="section-title">
+              <div>
+                <h2>Режим кабинета</h2>
+                <p class="muted-note" id="account-role-note">После входа покажем действия, доступные вашей роли.</p>
+              </div>
+            </div>
+            <div class="role-cards" id="account-role-cards">
+              <article class="role-card">
+                <span class="pill soft">USER</span>
+                <strong>Пользовательский режим</strong>
+                <p>Профиль, заявки, отклики и диалоги появятся после входа.</p>
+              </article>
+            </div>
+          </section>
+          <section class="content-block wide">
+            <div class="section-title">
+              <div>
+                <h2>Готовность профиля</h2>
+                <p class="muted-note" id="profile-readiness-note">Чеклист обновится после входа.</p>
+              </div>
+            </div>
+            <div class="readiness-list" id="profile-readiness-list">
+              <article><strong>Войдите в аккаунт</strong><p>После входа покажем, что стоит заполнить до публикации заявок.</p></article>
+            </div>
+          </section>
+          <form class="content-block wide profile-editor" id="profile-form">
+            <div class="section-title">
+              <h2>Редактировать профиль</h2>
+            </div>
+            <label>Имя
+              <input id="profile-display-name" minlength="2" maxlength="80" placeholder="Как вас показывать другим" />
+            </label>
+            <label>Био
+              <textarea id="profile-bio" rows="4" maxlength="4000" placeholder="Коротко о стиле, темпе и любимых форматах"></textarea>
+            </label>
+            <div class="avatar-editor">
+              <div class="avatar large" id="profile-avatar-preview">MI</div>
+              <div>
+                <label>Аватар
+                  <select id="profile-avatar-preset">
+                    <option value="">Инициалы</option>
+                    <option value="gradient-mint">Mint</option>
+                    <option value="gradient-sunset">Sunset</option>
+                    <option value="gradient-night">Night</option>
+                  </select>
+                </label>
+                <label>Загрузить картинку, сжатие до 128KB
+                  <input id="profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" />
+                </label>
+                <button class="ghost-button" id="profile-avatar-clear" type="button">Убрать аватар</button>
+              </div>
+            </div>
+            <div class="cover-editor">
+              <div class="cover-preview" id="profile-cover-preview" aria-label="Превью обложки профиля"></div>
+              <div>
+                <input id="profile-cover-url" type="hidden" />
+                <label>Загрузить обложку, сжатие до 256KB
+                  <input id="profile-cover-file" type="file" accept="image/png,image/jpeg,image/webp" />
+                </label>
+                <p class="muted-note">После загрузки обложка видна в превью, адрес картинки не показывается.</p>
+                <button class="ghost-button" id="profile-cover-clear" type="button">Убрать обложку</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Стиль письма
+                <input id="profile-writing-style" placeholder="атмосферный, диалоговый..." />
+              </label>
+              <label>Грамотность
+                <input id="profile-literacy-level" maxlength="120" placeholder="строго, средне, без придирок..." />
+              </label>
+            </div>
+            <div class="form-row">
+              <label>Длина поста
+                <input id="profile-post-length" maxlength="120" placeholder="1-2 абзаца, 2-4к символов..." />
+              </label>
+              <label>Темп
+                <input id="profile-activity-level" placeholder="ежедневно, 2-3 раза в неделю..." />
+              </label>
+              <label>Связь вне игры
+                <input id="profile-communication" maxlength="240" placeholder="ЛС сайта, Discord после знакомства..." />
+              </label>
+            </div>
+            <div class="form-row">
+              <label>Любимые жанры
+                <input id="profile-favorite-genres" placeholder="Фэнтези, Драма" />
+              </label>
+              <label>Любимые фандомы
+                <input id="profile-favorite-fandoms" placeholder="Ориджиналы, Star Rail" />
+              </label>
+              <label>Любимые персонажи
+                <input id="profile-favorite-characters" placeholder="Original Character" />
+              </label>
+            </div>
+            <div class="form-row profile-social-editor">
+              <label>Сайт или портфолио
+                <input id="profile-social-website" maxlength="240" placeholder="https://example.com" />
+              </label>
+              <label>Telegram
+                <input id="profile-social-telegram" maxlength="120" placeholder="@username или https://t.me/username" />
+              </label>
+              <label>Discord
+                <input id="profile-social-discord" maxlength="120" placeholder="username" />
+              </label>
+            </div>
+            <div class="preference-toggles">
+              <label>
+                <input id="profile-show-last-seen" type="checkbox" checked />
+                Показывать последнюю активность в публичном профиле
+              </label>
+              <label>
+                <input id="profile-allow-messages" type="checkbox" checked />
+                Разрешить новым людям писать мне из публичного профиля
+              </label>
+            </div>
+            <button class="primary-button" type="submit">Сохранить профиль</button>
+          </form>
+          <form class="content-block wide profile-editor" id="password-form">
+            <div class="section-title">
+              <div>
+                <h2>Безопасность</h2>
+                <p class="muted-note" id="password-note">Смените пароль, если передавали доступ или входили с чужого устройства.</p>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Текущий пароль
+                <input id="current-password" type="password" autocomplete="current-password" required />
+              </label>
+              <label>Новый пароль
+                <input id="new-password" type="password" minlength="8" maxlength="160" autocomplete="new-password" required />
+              </label>
+            </div>
+            <div class="button-row">
+              <button class="primary-button" id="password-submit" type="submit">Сменить пароль</button>
+              <button class="ghost-button" id="download-my-data" type="button">Скачать мои данные</button>
+            </div>
+            <div class="danger-zone">
+              <div>
+                <strong>Деактивация аккаунта</strong>
+                <p>Профиль и заявки будут скрыты, текущая сессия завершится. Восстановление потребует обращения к администрации.</p>
+              </div>
+              <label>Пароль для подтверждения
+                <input id="deactivate-password" type="password" autocomplete="current-password" />
+              </label>
+              <button class="ghost-button danger-button" id="deactivate-account" type="button">Деактивировать аккаунт</button>
+            </div>
+          </form>
+          <section class="content-block wide">
+            <div class="section-title">
+              <div>
+                <h2>Мои заявки</h2>
+                <p class="muted-note" id="my-listings-count">Заявки загрузятся после входа.</p>
+              </div>
+              <button class="ghost-button" id="refresh-my-listings" type="button">Обновить</button>
+            </div>
+            <div class="profile-listing-tools">
+              <label>Поиск по моим заявкам
+                <input id="my-listings-search" placeholder="Название, текст, тег..." />
+              </label>
+              <label>Сортировка
+                <select id="my-listings-sort">
+                  <option value="new">Сначала новые</option>
+                  <option value="status">По статусу</option>
+                  <option value="responses">Больше откликов</option>
+                  <option value="title">По названию</option>
+                </select>
+              </label>
+            </div>
+            <div class="listing-tabs" id="my-listing-tabs" role="tablist" aria-label="Фильтр моих заявок">
+              <button type="button" class="is-active" data-my-listing-filter="all">Все</button>
+              <button type="button" data-my-listing-filter="DRAFT">Черновики</button>
+              <button type="button" data-my-listing-filter="PUBLISHED">Опубликованные</button>
+              <button type="button" data-my-listing-filter="CLOSED">Закрытые</button>
+              <button type="button" data-my-listing-filter="ARCHIVED">Архив</button>
+            </div>
+            <div class="listing-list compact" id="my-listings">
+              <article class="listing-card">
+                <h2>Заявки загрузятся после входа</h2>
+                <p>Черновики, опубликованные и закрытые заявки появятся здесь.</p>
+              </article>
+            </div>
+          </section>
+          <section class="content-block wide">
+            <div class="section-title">
+              <div>
+                <h2>Понравившиеся заявки</h2>
+                <p class="muted-note" id="liked-listings-count">Понравившиеся заявки появятся после лайков.</p>
+              </div>
+              <button class="ghost-button" id="refresh-liked-listings" type="button">Обновить</button>
+            </div>
+            <div class="profile-listing-tools">
+              <label>Поиск по понравившимся
+                <input id="liked-listings-search" placeholder="Автор, название, тег..." />
+              </label>
+              <label>Сортировка
+                <select id="liked-listings-sort">
+                  <option value="new">Сначала новые</option>
+                  <option value="popular">Популярные</option>
+                  <option value="responses">Больше откликов</option>
+                  <option value="title">По названию</option>
+                </select>
+              </label>
+            </div>
+            <div class="listing-list compact" id="liked-listings">
+              <article class="listing-card">
+                <h2>Список появится после лайков</h2>
+                <p>Ставьте лайки заявкам, чтобы быстро возвращаться к ним из личного кабинета.</p>
+              </article>
+            </div>
+          </section>
+          <section class="content-block wide">
+            <div class="section-title">
+              <h2>Уведомления</h2>
+              <button class="ghost-button" id="read-all-notifications" type="button">Прочитать все</button>
+            </div>
+            <div class="notification-tabs" id="notification-tabs" role="tablist" aria-label="Фильтр уведомлений">
+              <button type="button" class="is-active" data-notification-filter="all">Все</button>
+              <button type="button" data-notification-filter="unread">Непрочитанные</button>
+              <button type="button" data-notification-filter="read">Прочитанные</button>
+            </div>
+            <div class="notification-list" id="notification-list">
+              <article>
+                <strong>Уведомлений пока нет</strong>
+                <p>Новые отклики, принятые заявки и системные сообщения появятся здесь.</p>
+              </article>
+            </div>
+          </section>
+          <section class="content-block wide">
+            <div class="section-title">
+              <div>
+                <h2>Блок-лист</h2>
+                <p class="muted-note" id="block-list-count">Список заблокированных авторов загрузится после входа.</p>
+              </div>
+            </div>
+            <label>Поиск в блок-листе
+              <input id="block-list-search" type="search" placeholder="Имя, username, роль или статус" />
+            </label>
+            <div class="block-list" id="block-list">
+              <article>
+                <strong>Список пуст</strong>
+                <p>Заблокированные авторы появятся здесь.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-profile" aria-labelledby="profile-title">
+        <button class="text-button" data-view-link="feed">Назад к ленте</button>
+        <div class="dashboard-grid">
+          <section class="profile-cover" id="public-profile-cover">
+            <div class="avatar large" id="public-profile-avatar">MI</div>
+            <h1 id="profile-title">MiraInk</h1>
+            <p id="public-profile-bio">Пишу камерные сюжеты, люблю атмосферу, сложные диалоги и бережный темп.</p>
+            <div class="tags" id="public-profile-tags"><span>детектив</span><span>fantasy</span><span>slow burn</span></div>
+            <div class="profile-socials" id="public-profile-socials"></div>
+            <div class="profile-format-grid" id="public-profile-format"></div>
+            <div class="button-row">
+              <button class="ghost-button" id="copy-profile-link" type="button">Скопировать ссылку на профиль</button>
+              <button class="secondary-button" id="message-profile-author" type="button">Написать</button>
+              <button class="ghost-button" id="block-profile-author" type="button">Заблокировать автора</button>
+              <button class="ghost-button" id="report-profile-author" type="button">Пожаловаться</button>
+            </div>
+          </section>
+          <section class="metric-grid" id="public-profile-metrics">
+            <article><strong>0</strong><span>заявок</span></article>
+            <article><strong>USER</strong><span>роль</span></article>
+            <article><strong>ACTIVE</strong><span>статус</span></article>
+          </section>
+          <section class="content-block wide">
+            <div class="section-title">
+              <div>
+                <h2>Опубликованные заявки</h2>
+                <p class="muted-note" id="public-profile-listings-count">Заявки автора загрузятся вместе с профилем.</p>
+              </div>
+            </div>
+            <div class="profile-listing-tools">
+              <label>Поиск по заявкам автора
+                <input id="public-profile-listing-search" placeholder="Название, описание, тег..." />
+              </label>
+              <label>Сортировка
+                <select id="public-profile-listing-sort">
+                  <option value="new">Сначала новые</option>
+                  <option value="popular">Сначала популярные</option>
+                  <option value="responses">Больше откликов</option>
+                </select>
+              </label>
+            </div>
+            <div class="listing-list" id="public-profile-listings"></div>
+            <div class="feed-pagination" id="public-profile-listings-pagination"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-appearance" aria-labelledby="appearance-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/me/appearance</p>
+            <h1 id="appearance-title">Мастерская внешнего вида</h1>
+          </div>
+        </div>
+        <div class="appearance-grid">
+          <aside class="settings-panel">
+            <label>Готовая тема
+              <select id="theme-preset">
+                <option value="lavender">Lavender Studio</option>
+                <option value="writer">Dark Writer</option>
+                <option value="paper">Paper Novel</option>
+                <option value="neon">Neon Roleplay</option>
+                <option value="romance">Soft Romance</option>
+                <option value="forest">Forest Magic</option>
+                <option value="minimal">Minimal Slate</option>
+              </select>
+            </label>
+            <label>Основной цвет
+              <input id="accent-color" type="color" value="#7a5cff" />
+            </label>
+            <label>Цвет текста
+              <input id="text-color" type="color" value="#24263a" />
+            </label>
+            <label>Размер шрифта
+              <input id="font-size" type="range" min="14" max="20" value="16" />
+            </label>
+            <label>Скругление карточек
+              <input id="radius-size" type="range" min="2" max="8" value="8" />
+            </label>
+            <label>Плотность
+              <select id="density">
+                <option value="comfortable">Комфортная</option>
+                <option value="compact">Компактная</option>
+              </select>
+            </label>
+            <label class="check-line">
+              <input id="decorations" type="checkbox" checked />
+              Показывать декоративные элементы
+            </label>
+            <label>URL фонового изображения
+              <input id="background-image-url" type="url" placeholder="https://example.com/background.jpg" />
+            </label>
+              <label>Загрузить фон, сжатие до 256KB
+              <input id="background-image-file" type="file" accept="image/png,image/jpeg,image/webp" />
+            </label>
+            <div class="form-row">
+              <label>Затемнение
+                <input id="background-overlay" type="range" min="0" max="80" value="20" />
+              </label>
+              <label>Размытие
+                <input id="background-blur" type="range" min="0" max="20" value="0" />
+              </label>
+            </div>
+            <div class="button-row">
+              <button class="secondary-button" id="save-background" type="button">Применить фон</button>
+              <button class="ghost-button" id="clear-background" type="button">Убрать фон</button>
+              <button class="secondary-button" id="reset-theme" type="button">Сбросить</button>
+            </div>
+          </aside>
+          <section class="live-preview" id="live-preview">
+            <div class="preview-shell">
+              <article class="listing-card compact">
+                <div class="card-topline"><span class="pill">PLOT_SEARCH</span><span>live preview</span></div>
+                <h2>Пробная карточка заявки</h2>
+                <p>Так будут выглядеть длинные описания, теги, кнопки и цветовые акценты в вашей студии.</p>
+                <div class="tags"><span>preview</span><span>fantasy</span><span>dialogue</span></div>
+              </article>
+              <article class="profile-preview">
+                <div class="avatar">NV</div>
+                <div><strong>NovaVerse</strong><p>Люблю мягкую драму и посты 2-4 абзаца.</p></div>
+              </article>
+              <article class="message-row own">
+                <p>Можно настроить цитаты, кнопки, карточки и фон под свой рабочий ритм.</p>
+                <div class="reaction-bar"><button>✨ 4</button><button>❤️ 2</button></div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-chat" aria-labelledby="chat-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/chat</p>
+            <h1 id="chat-title">Общий чат</h1>
+          </div>
+          <div class="button-row">
+            <span class="api-status is-hidden" id="ws-status" data-staff-feature aria-hidden="true">Чат временно недоступен</span>
+            <button class="ghost-button" id="copy-chat-room-link" type="button">Ссылка на комнату</button>
+            <button class="ghost-button" id="open-canvas">Нарисовать</button>
+          </div>
+        </div>
+        <div class="chat-layout">
+          <aside class="rooms" id="chat-rooms" aria-label="Комнаты общего чата">
+            <button class="is-selected" type="button" data-chat-room="general"># общий <span>все сообщения</span></button>
+            <button type="button" data-chat-room="partners"># поиск соигроков <span>заявки и пары</span></button>
+            <button type="button" data-chat-room="fandoms"># фандомы <span>миры и каноны</span></button>
+            <button type="button" data-chat-room="moderation"># модерация <span>вопросы правил</span></button>
+          </aside>
+          <section class="chat-panel">
+            <div class="chat-search">
+              <label>Поиск по чату
+                <input id="chat-search" type="search" placeholder="Автор, текст, цитата..." />
+              </label>
+              <button class="ghost-button" id="clear-chat-search" type="button">Сбросить</button>
+              <span class="muted-note" id="chat-search-status">Показываем последние сообщения.</span>
+            </div>
+            <div class="chat-room-note" id="chat-room-note">Комната: # общий. Здесь видны все сообщения.</div>
+            <div class="chat-history-actions">
+              <button class="ghost-button" id="load-older-chat" type="button" disabled>Загрузить старые сообщения</button>
+              <span class="muted-note" id="chat-history-status">Сообщений пока нет. Начните обсуждение первым.</span>
+            </div>
+            <div class="messages" id="messages"></div>
+            <div class="chat-auth-notice" id="chat-auth-notice" data-guest-feature>
+              <p>Войдите, чтобы писать в общий чат. Читать сообщения можно без регистрации, если это разрешено правилами.</p>
+              <a class="primary-button" href="/auth" data-view-link="auth">Войти</a>
+            </div>
+            <form class="composer" id="chat-form">
+              <div class="quote-box is-hidden" id="quote-box">
+                <span id="quote-text"></span>
+                <button type="button" id="clear-quote" aria-label="Убрать цитату">×</button>
+              </div>
+              <textarea id="chat-input" rows="3" maxlength="4000" placeholder="Войдите, чтобы написать сообщение в общий чат" disabled></textarea>
+              <div class="rich-toolbar" data-editor-target="chat-input" aria-label="Форматирование сообщения"></div>
+              <div class="drawing-preview is-hidden" id="drawing-preview">
+                <img id="drawing-preview-image" alt="Превью рисунка из мини-холста" decoding="async" />
+                <div>
+                  <strong>Рисунок прикреплен</strong>
+                  <p>Он отправится вместе со следующим сообщением.</p>
+                </div>
+                <button type="button" id="remove-drawing" aria-label="Убрать рисунок">×</button>
+              </div>
+              <div class="composer-actions">
+                <span class="muted-note" id="chat-composer-note">Войдите, чтобы отправлять сообщения в общий чат.</span>
+                <span class="char-counter" id="chat-counter">0 / 4000</span>
+                <button type="button" class="ghost-button" id="open-canvas-bottom" disabled>Холст</button>
+                <button type="submit" class="primary-button chat-send-button" id="chat-submit" aria-label="Отправить сообщение" disabled>
+                  <span class="chat-send-label">Отправить</span>
+                  <span class="chat-send-icon" aria-hidden="true">➤</span>
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-auth" aria-labelledby="auth-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/auth</p>
+            <h1 id="auth-title">Вход и регистрация</h1>
+          </div>
+        </div>
+        <div class="auth-grid single">
+          <form class="form-panel auth-panel" id="login-form" data-auth-panel="login">
+            <p class="eyebrow">Авторизация</p>
+            <h2>Войти по e-mail</h2>
+            <p class="muted-note">Введите e-mail и пароль, чтобы открыть личную студию, отклики, чат и создание заявок.</p>
+            <label>Email
+              <input id="login-email" type="email" autocomplete="email" required />
+            </label>
+            <label>Пароль
+              <input id="login-password" type="password" autocomplete="current-password" required />
+            </label>
+            <button class="primary-button" type="submit">Войти</button>
+            <p class="auth-switch">Нет учётки? <button type="button" class="text-link" data-auth-mode="register">Зарегистрироваться</button></p>
+            <p class="auth-switch">Забыли пароль? <button type="button" class="text-link" data-auth-mode="reset">Восстановить доступ</button></p>
+            <p class="muted-note">Войдите, чтобы создавать заявки, отвечать авторам, сохранять понравившееся и участвовать в чатах.</p>
+          </form>
+          <form class="form-panel auth-panel is-hidden" id="register-form" data-auth-panel="register">
+            <p class="eyebrow">Новый аккаунт</p>
+            <h2>Регистрация</h2>
+            <p class="muted-note">Создайте профиль автора, чтобы публиковать заявки, отвечать в чатах и получать отклики.</p>
+            <label>Email
+              <input id="register-email" type="email" placeholder="author@example.com" autocomplete="email" required />
+            </label>
+            <label>Username
+              <input id="register-username" placeholder="writer_name" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]+" title="3-32 символа: латиница, цифры, _ или -" required />
+            </label>
+            <label>Отображаемое имя
+              <input id="register-display" placeholder="Writer Name" autocomplete="name" minlength="2" maxlength="80" required />
+            </label>
+            <label>Пароль
+              <input id="register-password" type="password" minlength="8" maxlength="160" autocomplete="new-password" required />
+            </label>
+            <button class="secondary-button" type="submit">Зарегистрироваться</button>
+            <p class="auth-switch">Уже есть аккаунт? <button type="button" class="text-link" data-auth-mode="login">Войти по e-mail</button></p>
+          </form>
+          <div class="form-panel auth-panel is-hidden" data-auth-panel="reset">
+            <p class="eyebrow">Восстановление</p>
+            <h2>Сброс пароля</h2>
+            <p class="muted-note">Укажите e-mail, и мы отправим инструкцию для восстановления доступа.</p>
+            <form id="reset-request-form">
+              <label>Email
+                <input id="reset-email" type="email" placeholder="author@example.com" autocomplete="email" required />
+              </label>
+              <button class="primary-button" type="submit">Получить код</button>
+            </form>
+            <form id="reset-confirm-form">
+              <label>Код восстановления
+                <input id="reset-token" autocomplete="one-time-code" required />
+              </label>
+              <label>Новый пароль
+                <input id="reset-new-password" type="password" minlength="8" maxlength="160" autocomplete="new-password" required />
+              </label>
+              <button class="secondary-button" type="submit">Сохранить новый пароль</button>
+            </form>
+            <p class="muted-note" id="reset-note">После смены пароля можно войти обычной формой e-mail.</p>
+            <p class="auth-switch">Вспомнили пароль? <button type="button" class="text-link" data-auth-mode="login">Войти по e-mail</button></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-subscription" aria-labelledby="subscription-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/me/subscription</p>
+            <h1 id="subscription-title">Подписка без рекламы</h1>
+          </div>
+        </div>
+        <section class="content-block wide subscription-status" id="subscription-status">
+          <span class="pill soft">Free</span>
+          <h2>Текущий режим: бесплатный</h2>
+          <p>Войдите в аккаунт, чтобы увидеть активную подписку и дату окончания.</p>
+        </section>
+        <div class="button-row subscription-actions">
+          <button class="ghost-button" id="cancel-subscription" type="button" disabled>Отключить Premium</button>
+        </div>
+        <div class="plans" id="plans-list">
+          <article class="plan">
+            <span class="pill soft">Free</span>
+            <h2>Бесплатный</h2>
+            <p>Реклама в ленте, на страницах заявок и в сайдбаре. Базовые настройки внешнего вида.</p>
+            <strong>0 ₽</strong>
+          </article>
+          <article class="plan featured">
+            <span class="pill warm">Premium</span>
+            <h2>Творческая студия</h2>
+            <p>Без рекламы, расширенные фоны профиля, больше закрепленных заявок и дополнительные темы.</p>
+            <strong>199 ₽ / месяц</strong>
+            <button class="primary-button">Оформить</button>
+          </article>
+          <article class="plan">
+            <span class="pill">Owner tools</span>
+            <h2>Архитектура платежей</h2>
+            <p>Отключите рекламу и получите дополнительные настройки профиля.</p>
+          </article>
+        </div>
+        <section class="content-block wide">
+          <div class="section-title">
+            <div>
+              <h2>История платежей</h2>
+              <p class="muted-note" id="payment-list-count">История платежей загрузится после входа.</p>
+            </div>
+            <button class="ghost-button" id="refresh-payments" type="button">Обновить</button>
+          </div>
+          <div class="profile-listing-tools">
+            <label>Поиск по платежам
+              <input id="payment-search" type="search" placeholder="План, провайдер, валюта..." />
+            </label>
+            <label>Статус
+              <select id="payment-status-filter">
+                <option value="all">Все</option>
+                <option value="PENDING">Pending</option>
+                <option value="SUCCEEDED">Succeeded</option>
+                <option value="FAILED">Failed</option>
+                <option value="CANCELED">Canceled</option>
+                <option value="REFUNDED">Refunded</option>
+              </select>
+            </label>
+          </div>
+          <div class="payment-list" id="payment-list">
+            <article><strong>Войдите в аккаунт</strong><p>Платежи появятся после оформления Premium.</p></article>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="view-admin" aria-labelledby="admin-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/admin</p>
+            <h1 id="admin-title">Админ-панель</h1>
+            <p class="muted-note" id="admin-role-note">Админ-разделы доступны только команде проекта.</p>
+          </div>
+        </div>
+        <nav class="admin-menu" id="admin-menu" aria-label="Разделы админки">
+          <button type="button" data-admin-tab="overview" aria-pressed="true">Обзор</button>
+          <button type="button" data-admin-tab="users">Пользователи</button>
+          <button type="button" data-admin-tab="catalog">Каталог</button>
+          <button type="button" data-admin-tab="ads">Реклама</button>
+          <button type="button" data-admin-tab="launch" data-owner-admin-feature>Запуск</button>
+          <button type="button" data-admin-tab="premium" data-owner-admin-feature>Premium</button>
+          <button type="button" data-admin-tab="seo" data-owner-admin-feature>SEO</button>
+          <button type="button" data-admin-tab="audit" data-owner-admin-feature>Audit</button>
+        </nav>
+        <div class="admin-grid">
+          <section class="content-block wide is-hidden" id="admin-search-section" data-admin-panel="launch" data-owner-admin-feature>
+            <div class="section-title">
+              <h2>Индекс поиска</h2>
+              <button class="secondary-button" id="admin-reindex" type="button">Reindex Meilisearch</button>
+            </div>
+            <p class="muted-note" id="admin-reindex-status">OWNER/ADMIN могут обновить поисковый индекс после публикаций и изменений каталога.</p>
+          </section>
+          <section class="content-block wide is-hidden" id="admin-settings-section" data-admin-panel="launch" data-owner-admin-feature>
+            <div class="section-title">
+              <div>
+                <h2>Публичные функции</h2>
+                <p class="muted-note" id="admin-settings-note">Платные функции скрыты для пользователей до ручного включения OWNER/ADMIN.</p>
+              </div>
+              <button class="ghost-button" id="admin-settings-refresh" type="button">Обновить</button>
+            </div>
+            <label class="check-line">
+              <input id="admin-monetization-enabled" type="checkbox" />
+              Показывать Premium, тарифы, оформление подписки и историю платежей пользователям
+            </label>
+            <button class="secondary-button" id="admin-settings-save" type="button">Сохранить настройки</button>
+          </section>
+          <section class="metric-grid" id="admin-metrics" data-admin-panel="overview">
+            <article><strong>1 284</strong><span>пользователя</span></article>
+            <article><strong>312</strong><span>заявок</span></article>
+            <article><strong>27</strong><span>жалоб</span></article>
+            <article><strong>14</strong><span>предложений</span></article>
+          </section>
+          <section class="admin-table" id="admin-moderation-section" data-admin-panel="overview">
+            <div class="section-title">
+              <div>
+                <h2>Модерация</h2>
+                <p class="muted-note" id="admin-queue-count">Очередь загрузится после входа staff-аккаунтом.</p>
+              </div>
+              <button class="ghost-button" id="admin-refresh" type="button">Обновить</button>
+            </div>
+            <div class="profile-listing-tools">
+              <label>Поиск по очереди
+                <input id="admin-queue-search" type="search" placeholder="Заявка, жалоба, предложение..." />
+              </label>
+              <label>Тип
+                <select id="admin-queue-kind">
+                  <option value="all">Все</option>
+                  <option value="report">Жалобы</option>
+                  <option value="suggestion">Предложения</option>
+                  <option value="listing">Заявки</option>
+                </select>
+              </label>
+              <label>Статус
+                <select id="admin-queue-status">
+                  <option value="all">Все</option>
+                  <option value="NEW">NEW</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="IN_REVIEW">IN_REVIEW</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="HIDDEN">HIDDEN</option>
+                  <option value="RESOLVED">RESOLVED</option>
+                  <option value="REJECTED">REJECTED</option>
+                </select>
+              </label>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Объект</th><th>Статус</th><th>Причина</th><th>Действие</th></tr>
+              </thead>
+              <tbody id="admin-queue">
+                <tr><td colspan="4">Очередь загрузится после входа staff-аккаунтом.</td></tr>
+              </tbody>
+            </table>
+          </section>
+          <section class="admin-table" id="admin-users-section" data-admin-panel="users">
+            <div class="section-title">
+              <div>
+                <h2>Пользователи</h2>
+                <p class="muted-note" id="admin-users-count">Пользователи загрузятся после входа staff-аккаунтом.</p>
+              </div>
+              <button class="ghost-button" id="admin-users-refresh" type="button">Обновить</button>
+            </div>
+            <div class="profile-listing-tools">
+              <label>Поиск пользователей
+                <input id="admin-users-search" type="search" placeholder="Имя, username, email..." />
+              </label>
+              <label>Роль
+                <select id="admin-users-role">
+                  <option value="all">Все</option>
+                  <option value="OWNER">OWNER</option>
+                  <option value="ADMIN">ADMIN</option>
+                  <option value="MODERATOR">MODERATOR</option>
+                  <option value="USER">USER</option>
+                </select>
+              </label>
+              <label>Статус
+                <select id="admin-users-status">
+                  <option value="all">Все</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="MUTED">MUTED</option>
+                  <option value="TEMP_BANNED">TEMP_BANNED</option>
+                  <option value="BANNED">BANNED</option>
+                  <option value="DELETED">DELETED</option>
+                </select>
+              </label>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Пользователь</th><th>Роль</th><th>Статус</th><th>Действие</th></tr>
+              </thead>
+              <tbody id="admin-users">
+                <tr><td colspan="4">Пользователи загрузятся после входа staff-аккаунтом.</td></tr>
+              </tbody>
+            </table>
+          </section>
+          <section class="content-block wide is-hidden" id="admin-owner-tools" data-admin-panel="launch" data-owner-admin-feature>
+            <h2>Разделы OWNER/ADMIN</h2>
+            <div class="quick-actions">
+              <button type="button" data-admin-tab="users">Пользователи</button><button type="button" data-admin-tab="users">Баны</button><button type="button" data-admin-tab="catalog">Справочники</button>
+              <button type="button" data-admin-tab="ads">Реклама</button><button type="button" data-admin-tab="premium">Подписки</button><button type="button" data-admin-tab="seo">SEO</button>
+            </div>
+          </section>
+          <section class="content-block wide" id="admin-catalog-section" data-admin-panel="catalog">
+            <div class="section-title">
+              <div>
+                <h2>Теги каталога</h2>
+                <p class="muted-note" id="admin-tags-count">Теги загрузятся после входа staff-аккаунтом.</p>
+              </div>
+              <button class="ghost-button" id="admin-tags-refresh" type="button">Обновить</button>
+            </div>
+            <form class="catalog-editor" id="admin-tag-form">
+              <div class="form-row">
+                <label>Slug
+                  <input id="admin-tag-slug" required minlength="2" maxlength="80" pattern="[a-z0-9][a-z0-9-]*" title="2-80 символов: lowercase slug, цифры и -" placeholder="cozy-mystery" />
+                </label>
+                <label>Название
+                  <input id="admin-tag-name" required maxlength="140" placeholder="cozy mystery" />
+                </label>
+                <label>Статус
+                  <select id="admin-tag-status">
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="HIDDEN">HIDDEN</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </label>
+              </div>
+              <label>Описание
+                <textarea id="admin-tag-description" rows="3" placeholder="Краткое пояснение для каталога"></textarea>
+              </label>
+              <button class="primary-button" type="submit">Сохранить тег</button>
+            </form>
+            <div class="profile-listing-tools">
+              <label>Поиск тегов
+                <input id="admin-tags-search" type="search" placeholder="Название, slug, описание..." />
+              </label>
+              <label>Статус
+                <select id="admin-tags-status-filter">
+                  <option value="all">Все</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="HIDDEN">HIDDEN</option>
+                  <option value="REJECTED">REJECTED</option>
+                </select>
+              </label>
+            </div>
+            <div class="catalog-admin-list" id="admin-tags-list">
+              <article><strong>Теги загрузятся после входа staff-аккаунтом.</strong></article>
+            </div>
+          </section>
+          <section class="content-block wide" data-admin-panel="catalog">
+            <div class="section-title">
+              <div>
+                <h2>Жанры каталога</h2>
+                <p class="muted-note" id="admin-genres-count">Жанры загрузятся после входа staff-аккаунтом.</p>
+              </div>
+              <button class="ghost-button" id="admin-genres-refresh" type="button">Обновить</button>
+            </div>
+            <form class="catalog-editor" id="admin-genre-form">
+              <div class="form-row">
+                <label>Slug
+                  <input id="admin-genre-slug" required minlength="2" maxlength="80" pattern="[a-z0-9][a-z0-9-]*" title="2-80 символов: lowercase slug, цифры и -" placeholder="cozy-detective" />
+                </label>
+                <label>Название
+                  <input id="admin-genre-name" required maxlength="140" placeholder="Уютный детектив" />
+                </label>
+                <label>Статус
+                  <select id="admin-genre-status">
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="HIDDEN">HIDDEN</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </label>
+              </div>
+              <label>Описание
+                <textarea id="admin-genre-description" rows="3" placeholder="Краткое пояснение жанра"></textarea>
+              </label>
+              <button class="primary-button" type="submit">Сохранить жанр</button>
+            </form>
+            <div class="profile-listing-tools">
+              <label>Поиск жанров
+                <input id="admin-genres-search" type="search" placeholder="Название, slug, описание..." />
+              </label>
+              <label>Статус
+                <select id="admin-genres-status-filter">
+                  <option value="all">Все</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="HIDDEN">HIDDEN</option>
+                  <option value="REJECTED">REJECTED</option>
+                </select>
+              </label>
+            </div>
+            <div class="catalog-admin-list" id="admin-genres-list">
+              <article><strong>Жанры загрузятся после входа staff-аккаунтом.</strong></article>
+            </div>
+          </section>
+          <section class="content-block wide" data-admin-panel="catalog">
+            <div class="section-title">
+              <div>
+                <h2>Фандомы каталога</h2>
+                <p class="muted-note" id="admin-fandoms-count">Фандомы загрузятся после входа staff-аккаунтом.</p>
+              </div>
+              <button class="ghost-button" id="admin-fandoms-refresh" type="button">Обновить</button>
+            </div>
+            <form class="catalog-editor" id="admin-fandom-form">
+              <div class="form-row">
+                <label>Slug
+                  <input id="admin-fandom-slug" required minlength="2" maxlength="80" pattern="[a-z0-9][a-z0-9-]*" title="2-80 символов: lowercase slug, цифры и -" placeholder="honkai-star-rail" />
+                </label>
+                <label>Название
+                  <input id="admin-fandom-name" required maxlength="140" placeholder="Honkai: Star Rail" />
+                </label>
+                <label>Статус
+                  <select id="admin-fandom-status">
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="HIDDEN">HIDDEN</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </label>
+              </div>
+              <label>Описание
+                <textarea id="admin-fandom-description" rows="3" placeholder="Краткое пояснение фандома"></textarea>
+              </label>
+              <button class="primary-button" type="submit">Сохранить фандом</button>
+            </form>
+            <div class="profile-listing-tools">
+              <label>Поиск фандомов
+                <input id="admin-fandoms-search" type="search" placeholder="Название, slug, описание..." />
+              </label>
+              <label>Статус
+                <select id="admin-fandoms-status-filter">
+                  <option value="all">Все</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="HIDDEN">HIDDEN</option>
+                  <option value="REJECTED">REJECTED</option>
+                </select>
+              </label>
+            </div>
+            <div class="catalog-admin-list" id="admin-fandoms-list">
+              <article><strong>Фандомы загрузятся после входа staff-аккаунтом.</strong></article>
+            </div>
+          </section>
+          <section class="content-block wide" data-admin-panel="catalog">
+            <div class="section-title">
+              <div>
+                <h2>Персонажи каталога</h2>
+                <p class="muted-note" id="admin-characters-count">Персонажи загрузятся после входа staff-аккаунтом.</p>
+              </div>
+              <button class="ghost-button" id="admin-characters-refresh" type="button">Обновить</button>
+            </div>
+            <form class="catalog-editor" id="admin-character-form">
+              <div class="form-row">
+                <label>Slug
+                  <input id="admin-character-slug" required minlength="2" maxlength="80" pattern="[a-z0-9][a-z0-9-]*" title="2-80 символов: lowercase slug, цифры и -" placeholder="trailblazer" />
+                </label>
+                <label>Название
+                  <input id="admin-character-name" required maxlength="140" placeholder="Trailblazer" />
+                </label>
+                <label>Fandom ID
+                  <input id="admin-character-fandom-id" placeholder="uuid фандома, если нужен" />
+                </label>
+                <label>Статус
+                  <select id="admin-character-status">
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="HIDDEN">HIDDEN</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </label>
+              </div>
+              <label>Описание
+                <textarea id="admin-character-description" rows="3" placeholder="Краткое описание персонажа"></textarea>
+              </label>
+              <button class="primary-button" type="submit">Сохранить персонажа</button>
+            </form>
+            <div class="profile-listing-tools">
+              <label>Поиск персонажей
+                <input id="admin-characters-search" type="search" placeholder="Название, slug, фандом..." />
+              </label>
+              <label>Статус
+                <select id="admin-characters-status-filter">
+                  <option value="all">Все</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="HIDDEN">HIDDEN</option>
+                  <option value="REJECTED">REJECTED</option>
+                </select>
+              </label>
+            </div>
+            <div class="catalog-admin-list" id="admin-characters-list">
+              <article><strong>Персонажи загрузятся после входа staff-аккаунтом.</strong></article>
+            </div>
+          </section>
+          <section class="content-block wide is-hidden" id="admin-plans-section" data-admin-panel="premium" data-owner-admin-feature>
+            <div class="section-title">
+              <div>
+                <h2>Тарифы Premium</h2>
+                <p class="muted-note" id="admin-plans-count">Тарифы загрузятся после входа OWNER/ADMIN.</p>
+              </div>
+              <button class="ghost-button" id="admin-plans-refresh" type="button">Обновить</button>
+            </div>
+            <form class="catalog-editor" id="admin-plan-form">
+              <div class="form-row">
+                <label>Код
+                  <input id="admin-plan-code" required minlength="2" maxlength="80" pattern="[a-z0-9][a-z0-9-]*" title="2-80 символов: lowercase code, цифры и -" placeholder="premium-monthly" />
+                </label>
+                <label>Название
+                  <input id="admin-plan-name" required placeholder="Творческая студия" />
+                </label>
+                <label>Цена, коп.
+                  <input id="admin-plan-price" type="number" min="0" required value="19900" />
+                </label>
+                <label>Дней
+                  <input id="admin-plan-days" type="number" min="1" required value="30" />
+                </label>
+              </div>
+              <label>Описание
+                <textarea id="admin-plan-description" rows="3" required placeholder="Что входит в тариф"></textarea>
+              </label>
+              <label class="check-line">
+                <input id="admin-plan-active" type="checkbox" checked />
+                Активен
+              </label>
+              <button class="primary-button" type="submit">Сохранить тариф</button>
+            </form>
+            <div class="profile-listing-tools">
+              <label>Поиск тарифов
+                <input id="admin-plans-search" type="search" placeholder="Код, название, описание..." />
+              </label>
+              <label>Статус
+                <select id="admin-plans-status-filter">
+                  <option value="all">Все</option>
+                  <option value="active">Активные</option>
+                  <option value="inactive">Выключенные</option>
+                </select>
+              </label>
+            </div>
+            <div class="catalog-admin-list" id="admin-plans-list">
+              <article><strong>Тарифы загрузятся после входа OWNER/ADMIN.</strong></article>
+            </div>
+          </section>
+          <section class="content-block wide" id="admin-ads-section" data-admin-panel="ads">
+            <div class="section-title">
+              <div>
+                <h2>Рекламные placement'ы</h2>
+                <p class="muted-note" id="admin-ads-count">Реклама загрузится после входа staff-аккаунтом.</p>
+              </div>
+              <button class="ghost-button" id="admin-ads-refresh" type="button">Обновить</button>
+            </div>
+            <form class="catalog-editor" id="admin-ad-form">
+              <input id="admin-ad-id" type="hidden" value="new" />
+              <div class="form-row">
+                <label>Название
+                  <input id="admin-ad-name" required placeholder="Feed sidebar" />
+                </label>
+                <label>Позиция
+                  <select id="admin-ad-position">
+                    <option value="HOME">HOME</option>
+                    <option value="FEED">FEED</option>
+                    <option value="LISTING">LISTING</option>
+                    <option value="SIDEBAR">SIDEBAR</option>
+                    <option value="DASHBOARD">DASHBOARD</option>
+                    <option value="CHAT">CHAT</option>
+                    <option value="MOBILE">MOBILE</option>
+                  </select>
+                </label>
+                <label>Статус
+                  <select id="admin-ad-status">
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="DRAFT">DRAFT</option>
+                    <option value="PAUSED">PAUSED</option>
+                    <option value="EXPIRED">EXPIRED</option>
+                  </select>
+                </label>
+              </div>
+              <label>Click URL
+                <input id="admin-ad-click-url" type="url" placeholder="https://cofind2.com/partner" />
+              </label>
+              <label>Image URL
+                <input id="admin-ad-image-url" type="url" placeholder="https://cofind2.com/api/v1/uploads/images/ad.png" />
+              </label>
+              <div class="form-row">
+                <label>Лимит показов
+                  <input id="admin-ad-impression-limit" type="number" min="0" placeholder="без лимита" />
+                </label>
+                <label>Старт
+                  <input id="admin-ad-starts-at" type="datetime-local" />
+                </label>
+                <label>Окончание
+                  <input id="admin-ad-ends-at" type="datetime-local" />
+                </label>
+              </div>
+              <label class="check-line">
+                <input id="admin-ad-hide-premium" type="checkbox" />
+                Скрывать для Premium
+              </label>
+              <button class="primary-button" type="submit">Сохранить placement</button>
+            </form>
+            <div class="profile-listing-tools">
+              <label>Поиск рекламы
+                <input id="admin-ads-search" type="search" placeholder="Название, позиция, URL..." />
+              </label>
+              <label>Позиция
+                <select id="admin-ads-position-filter">
+                  <option value="all">Все</option>
+                  <option value="HOME">HOME</option>
+                  <option value="FEED">FEED</option>
+                  <option value="LISTING">LISTING</option>
+                  <option value="SIDEBAR">SIDEBAR</option>
+                  <option value="DASHBOARD">DASHBOARD</option>
+                  <option value="CHAT">CHAT</option>
+                  <option value="MOBILE">MOBILE</option>
+                </select>
+              </label>
+              <label>Статус
+                <select id="admin-ads-status-filter">
+                  <option value="all">Все</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="DRAFT">DRAFT</option>
+                  <option value="PAUSED">PAUSED</option>
+                  <option value="EXPIRED">EXPIRED</option>
+                </select>
+              </label>
+            </div>
+            <div class="catalog-admin-list" id="admin-ads-list">
+              <article><strong>Реклама загрузится после входа staff-аккаунтом.</strong></article>
+            </div>
+          </section>
+          <section class="content-block wide is-hidden" id="admin-finance-section" data-admin-panel="premium" data-owner-admin-feature>
+            <div class="section-title">
+              <div>
+                <h2>Платежи и подписки</h2>
+                <p class="muted-note" id="admin-finance-count">Финансы загрузятся после входа OWNER/ADMIN.</p>
+              </div>
+              <button class="ghost-button" id="admin-finance-refresh" type="button">Обновить</button>
+            </div>
+            <div class="profile-listing-tools">
+              <label>Поиск по финансам
+                <input id="admin-finance-search" type="search" placeholder="Пользователь, план, провайдер..." />
+              </label>
+              <label>Тип
+                <select id="admin-finance-kind">
+                  <option value="all">Все</option>
+                  <option value="payment">Платежи</option>
+                  <option value="subscription">Подписки</option>
+                </select>
+              </label>
+              <label>Статус
+                <select id="admin-finance-status">
+                  <option value="all">Все</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="SUCCEEDED">SUCCEEDED</option>
+                  <option value="FAILED">FAILED</option>
+                  <option value="CANCELED">CANCELED</option>
+                  <option value="REFUNDED">REFUNDED</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="EXPIRED">EXPIRED</option>
+                </select>
+              </label>
+            </div>
+            <div class="finance-list" id="admin-finance-list">
+              <article><strong>Только OWNER/ADMIN</strong><p>Платежи и подписки появятся после входа с нужной ролью.</p></article>
+            </div>
+          </section>
+          <section class="content-block wide is-hidden" id="admin-seo-section" data-admin-panel="seo" data-owner-admin-feature>
+            <div class="section-title">
+              <div>
+                <h2>SEO страницы</h2>
+                <p class="muted-note" id="admin-seo-count">SEO-страницы загрузятся после входа OWNER/ADMIN.</p>
+              </div>
+              <button class="ghost-button" id="admin-seo-refresh" type="button">Обновить</button>
+            </div>
+            <form class="catalog-editor" id="admin-seo-form">
+              <div class="form-row">
+                <label>Path
+                  <input id="admin-seo-path" required placeholder="/" />
+                </label>
+                <label>Title
+                  <input id="admin-seo-title" required maxlength="180" placeholder="Cofind 2" />
+                </label>
+                <label>H1
+                  <input id="admin-seo-h1" required maxlength="180" placeholder="Найти соавтора" />
+                </label>
+              </div>
+              <label>Description
+                <textarea id="admin-seo-description" rows="2" required maxlength="320" placeholder="Короткое описание для поисковиков"></textarea>
+              </label>
+              <div class="form-row">
+                <label>Canonical
+                  <input id="admin-seo-canonical" placeholder="https://cofind2.com/feed" />
+                </label>
+                <label>OG title
+                  <input id="admin-seo-og-title" maxlength="180" placeholder="Заголовок для соцсетей" />
+                </label>
+                <label>OG image
+                  <input id="admin-seo-og-image" placeholder="https://cofind2.com/og.png" />
+                </label>
+              </div>
+              <label>OG description
+                <textarea id="admin-seo-og-description" rows="2" maxlength="320" placeholder="Описание для соцсетей"></textarea>
+              </label>
+              <label>SEO text
+                <textarea id="admin-seo-text" rows="3" placeholder="Дополнительный SEO-текст страницы"></textarea>
+              </label>
+              <label class="check-line">
+                <input id="admin-seo-indexable" type="checkbox" checked />
+                Разрешить индексацию
+              </label>
+              <button class="primary-button" type="submit">Сохранить SEO</button>
+            </form>
+            <div class="profile-listing-tools">
+              <label>Поиск SEO
+                <input id="admin-seo-search" type="search" placeholder="Path, title, description..." />
+              </label>
+              <label>Индексация
+                <select id="admin-seo-index-filter">
+                  <option value="all">Все</option>
+                  <option value="index">INDEX</option>
+                  <option value="noindex">NOINDEX</option>
+                </select>
+              </label>
+            </div>
+            <div class="catalog-admin-list" id="admin-seo-list">
+              <article><strong>SEO-страницы загрузятся после входа OWNER/ADMIN.</strong></article>
+            </div>
+          </section>
+          <section class="content-block wide is-hidden" id="admin-audit-section" data-admin-panel="audit" data-owner-admin-feature>
+            <div class="section-title">
+              <div>
+                <h2>Audit log</h2>
+                <p class="muted-note" id="admin-audit-count">Audit log загрузится после входа OWNER/ADMIN.</p>
+              </div>
+            </div>
+            <div class="profile-listing-tools">
+              <label>Поиск по audit
+                <input id="admin-audit-search" type="search" placeholder="Действие, объект, actor..." />
+              </label>
+              <label>Объект
+                <select id="admin-audit-entity">
+                  <option value="all">Все</option>
+                  <option value="USER">USER</option>
+                  <option value="LISTING">LISTING</option>
+                  <option value="REPORT">REPORT</option>
+                  <option value="SUGGESTION">SUGGESTION</option>
+                  <option value="TAG">TAG</option>
+                  <option value="GENRE">GENRE</option>
+                  <option value="FANDOM">FANDOM</option>
+                  <option value="CHARACTER">CHARACTER</option>
+                  <option value="AD_PLACEMENT">AD_PLACEMENT</option>
+                  <option value="SUBSCRIPTION_PLAN">SUBSCRIPTION_PLAN</option>
+                  <option value="SEO_PAGE">SEO_PAGE</option>
+                </select>
+              </label>
+            </div>
+            <div class="audit-list" id="admin-audit-log">
+              <article><strong>Только OWNER/ADMIN</strong><p>Последние действия появятся после входа с нужной ролью.</p></article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-suggestions" aria-labelledby="suggestions-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/suggestions</p>
+            <h1 id="suggestions-title">Предложить тег, фандом, персонажа или жанр</h1>
+          </div>
+        </div>
+        <form class="form-panel narrow" id="suggestion-form">
+          <label>Тип предложения
+            <select id="suggestion-type">
+              <option value="TAG">Тег</option>
+              <option value="FANDOM">Фандом</option>
+              <option value="CHARACTER">Персонаж</option>
+              <option value="GENRE">Жанр</option>
+            </select>
+          </label>
+          <label>Название
+            <input id="suggestion-title-input" required minlength="2" maxlength="120" placeholder="Например: cozy mystery" />
+            <span class="char-counter" id="suggestion-title-counter">0 / 120</span>
+          </label>
+          <label>Описание
+            <textarea id="suggestion-description-input" rows="5" maxlength="2000" placeholder="Кратко поясните, что это и где используется"></textarea>
+            <span class="char-counter" id="suggestion-description-counter">0 / 2000</span>
+          </label>
+          <label>Ссылка на источник
+            <input id="suggestion-source-input" type="url" placeholder="https://..." />
+          </label>
+          <span class="muted-note" id="suggestion-form-note">Название должно быть от 2 до 120 символов.</span>
+          <button class="primary-button" type="submit" id="suggestion-submit" disabled>Отправить на модерацию</button>
+        </form>
+        <section class="content-block wide">
+          <div class="section-title">
+            <div>
+              <h2>Мои предложения</h2>
+              <p class="muted-note" id="my-suggestions-count">История предложений загрузится после входа.</p>
+            </div>
+            <button class="ghost-button" id="refresh-my-suggestions" type="button">Обновить</button>
+          </div>
+          <div class="profile-listing-tools">
+            <label>Поиск по предложениям
+              <input id="my-suggestions-search" type="search" placeholder="Название, тип, статус..." />
+            </label>
+            <label>Статус
+              <select id="my-suggestions-status">
+                <option value="all">Все</option>
+                <option value="PENDING">На модерации</option>
+                <option value="APPROVED">Одобрено</option>
+                <option value="REJECTED">Отклонено</option>
+              </select>
+            </label>
+          </div>
+          <div class="suggestion-list" id="my-suggestions">
+            <article><strong>Войдите в аккаунт</strong><p>После отправки предложения его статус появится здесь.</p></article>
+          </div>
+        </section>
+      </section>
+
+      <section class="view static-page" id="view-help" aria-labelledby="help-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/help</p>
+            <h1 id="help-title">Помощь и быстрый старт</h1>
+          </div>
+        </div>
+        <div class="section-grid">
+          <article class="content-block">
+            <h2>Как найти партнера</h2>
+            <ul class="clean-list">
+              <li>Заполните профиль: стиль письма, темп, любимые жанры и фандомы.</li>
+              <li>Откройте ленту заявок и сохраните фильтры под свой формат поиска.</li>
+              <li>Пишите отклик с конкретикой: темп, комфортные границы и идея первого шага.</li>
+            </ul>
+          </article>
+          <article class="content-block">
+            <h2>Как написать хорошую заявку</h2>
+            <ul class="clean-list">
+              <li>Коротко назовите формат: ролевая, соавторство, команда, бета-ридинг.</li>
+              <li>Опишите ожидания по длине постов, частоте ответов и hard limits.</li>
+              <li>Добавьте теги, жанры, фандомы и персонажей, чтобы вас нашли в поиске.</li>
+            </ul>
+          </article>
+          <article class="content-block">
+            <h2>Что делать при проблеме</h2>
+            <p>Используйте жалобу на заявке, сообщении или профиле. Модератор увидит контекст, историю и сможет скрыть материал, выдать mute или бан.</p>
+            <div class="button-row">
+              <button class="secondary-button" data-view-link="rules">Правила</button>
+              <button class="ghost-button" data-view-link="contacts">Контакты</button>
+            </div>
+          </article>
+          <article class="content-block">
+            <h2>Полезные страницы</h2>
+            <div class="quick-actions">
+              <button data-view-link="feed">Лента заявок</button>
+              <button data-view-link="chat">Общий чат</button>
+              <button data-view-link="suggestions">Предложить каталог</button>
+              <button data-view-link="privacy">Приватность</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view static-page" id="view-rules" aria-labelledby="rules-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/rules</p>
+            <h1 id="rules-title">Правила сообщества</h1>
+          </div>
+        </div>
+        <section class="content-block wide">
+          <h2>Базовый договор</h2>
+          <ul class="clean-list">
+            <li>Уважайте границы собеседника: темп, темы, рейтинг и стоп-темы обсуждаются до старта.</li>
+            <li>ADULT/18+ контент должен быть явно отмечен рейтингом и не должен появляться в неожиданных местах.</li>
+            <li>Запрещены спам, мошенничество, травля, угрозы, публикация чужих персональных данных и обход блокировок.</li>
+            <li>Модерация может скрывать заявки, сообщения и профили, а также выдавать mute, временный или постоянный бан.</li>
+          </ul>
+        </section>
+        <section class="content-block wide">
+          <h2>Безопасная коммуникация</h2>
+          <p>Не переводите деньги незнакомым пользователям, не передавайте пароли и личные документы, проверяйте внешние ссылки. Если диалог вызывает тревогу, заблокируйте пользователя и отправьте жалобу.</p>
+        </section>
+      </section>
+
+      <section class="view static-page" id="view-privacy" aria-labelledby="privacy-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/privacy</p>
+            <h1 id="privacy-title">Приватность и данные</h1>
+          </div>
+        </div>
+        <section class="content-block wide">
+          <h2>Что хранится</h2>
+          <p>Cofind 2 хранит аккаунт, профиль, заявки, отклики, личные диалоги, сообщения общего чата, жалобы, уведомления, настройки внешнего вида и служебные события аккаунта.</p>
+        </section>
+        <section class="content-block wide">
+          <h2>Что видно публично</h2>
+          <p>Публичны username, отображаемое имя, аватар, био и опубликованные approved-заявки. Личные диалоги, отклики и настройки приватны и доступны только участникам или staff-модерации при необходимости обработки жалобы.</p>
+        </section>
+        <section class="content-block wide">
+          <h2>Управление</h2>
+          <p>Пользователь может редактировать профиль, удалять свои сообщения, закрывать или архивировать заявки, блокировать других пользователей и обращаться к модерации через жалобы.</p>
+        </section>
+      </section>
+
+      <section class="view static-page" id="view-contacts" aria-labelledby="contacts-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/contacts</p>
+            <h1 id="contacts-title">Контакты</h1>
+          </div>
+        </div>
+        <div class="section-grid">
+          <article class="content-block">
+            <h2>Поддержка</h2>
+            <p>Для вопросов по аккаунту, платежам и модерации: <a href="mailto:support@cofind2.com">support@cofind2.com</a>.</p>
+          </article>
+          <article class="content-block">
+            <h2>Модерация</h2>
+            <p>Жалобы на заявки и сообщения лучше отправлять через встроенную кнопку: так модератор получает нужный id объекта и контекст.</p>
+          </article>
+          <article class="content-block">
+            <h2>Каталог</h2>
+            <p>Новых персонажей, жанры, фандомы и теги можно предложить через страницу предложений.</p>
+            <button class="secondary-button" data-view-link="suggestions">Предложить</button>
+          </article>
+          <article class="content-block">
+            <h2>Для тестеров</h2>
+            <p>Публичный API: <code>https://cofind2.com/api/v1</code>. Статус сервиса можно проверить через <code>/api/v1/health/ready</code>.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-inbox" aria-labelledby="inbox-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/me/inbox</p>
+            <h1 id="inbox-title">Диалоги и отклики</h1>
+          </div>
+          <button class="ghost-button" id="inbox-refresh" type="button">Обновить</button>
+        </div>
+        <div class="inbox-summary" id="inbox-summary" aria-live="polite">
+          <article><strong>0</strong><span>новых откликов</span></article>
+          <article><strong>0</strong><span>диалогов</span></article>
+          <article><strong>0</strong><span>непрочитанных</span></article>
+        </div>
+        <div class="inbox-tabs" id="inbox-tabs" role="tablist" aria-label="Фильтр inbox">
+          <button type="button" class="is-active" data-inbox-filter="all">Все</button>
+          <button type="button" data-inbox-filter="new">Новые отклики</button>
+          <button type="button" data-inbox-filter="sent">Мои отклики</button>
+          <button type="button" data-inbox-filter="dialogs">Диалоги</button>
+        </div>
+        <div class="profile-listing-tools">
+          <label>Поиск в inbox
+            <input id="inbox-search" type="search" placeholder="Автор, заявка, сообщение..." />
+          </label>
+          <label>Сортировка
+            <select id="inbox-sort">
+              <option value="new">Сначала свежие</option>
+              <option value="unread">Непрочитанные выше</option>
+              <option value="status">По статусу отклика</option>
+              <option value="title">По названию</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted-note" id="inbox-list-count">Inbox загрузится после входа.</p>
+        <div class="inbox-layout">
+          <div class="inbox-list" id="inbox-list">
+            <article>
+              <div class="avatar">AR</div>
+              <div><strong>Arlen</strong><p>Отклик на вашу заявку принят. Можно обсудить первую сцену?</p></div>
+              <button class="secondary-button">Открыть</button>
+            </article>
+            <article>
+              <div class="avatar">LY</div>
+              <div><strong>Lysa</strong><p>Новый отклик: бета-ридинг, фэнтези, грамотность высокая.</p></div>
+              <button class="secondary-button">Принять</button>
+            </article>
+          </div>
+          <section class="private-panel" aria-labelledby="private-title">
+            <div class="private-head">
+              <div>
+                <p class="eyebrow">Личные сообщения</p>
+                <h2 id="private-title">Выберите диалог</h2>
+              </div>
+              <div class="button-row">
+                <button class="ghost-button is-hidden" id="copy-private-link" type="button">Скопировать ссылку</button>
+                <button class="ghost-button is-hidden" id="private-refresh" type="button">Обновить</button>
+              </div>
+            </div>
+            <div class="private-search">
+              <label>Поиск в диалоге
+                <input id="private-search" type="search" placeholder="Автор или текст сообщения" disabled />
+              </label>
+              <button class="ghost-button" id="clear-private-search" type="button" disabled>Сбросить</button>
+              <span class="muted-note" id="private-search-status">Откройте диалог для поиска.</span>
+            </div>
+            <div class="chat-history-actions private-history-actions">
+              <button class="ghost-button" id="load-older-private" type="button" disabled>Загрузить старые сообщения</button>
+              <span class="muted-note" id="private-history-status">Выберите диалог, чтобы увидеть сообщения.</span>
+            </div>
+            <div class="private-messages" id="private-messages">
+              <article class="message">
+                <p class="message-text">Принятые отклики и личные диалоги откроются здесь.</p>
+              </article>
+            </div>
+            <form class="composer" id="private-message-form">
+              <textarea id="private-message-input" rows="3" maxlength="4000" placeholder="Напишите личное сообщение" disabled></textarea>
+              <div class="rich-toolbar" data-editor-target="private-message-input" aria-label="Форматирование личного сообщения"></div>
+              <div class="rich-preview is-hidden" id="private-rich-preview" aria-live="polite"></div>
+              <div class="composer-actions">
+                <span class="muted-note" id="private-note">Сначала откройте диалог из списка.</span>
+                <span class="char-counter" id="private-counter">0 / 4000</span>
+                <button type="submit" class="primary-button" id="private-submit" disabled>Отправить</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-report" aria-labelledby="report-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/reports/new</p>
+            <h1 id="report-title">Жалоба</h1>
+          </div>
+        </div>
+        <form class="form-panel narrow" id="report-form" novalidate>
+          <label>Тип объекта
+            <select id="report-entity-type">
+              <option value="PROFILE">Профиль</option>
+              <option value="PRIVATE_MESSAGE">Личное сообщение</option>
+              <option value="GLOBAL_CHAT_MESSAGE" selected>Сообщение общего чата</option>
+              <option value="LISTING">Заявка</option>
+              <option value="TAG">Тег</option>
+              <option value="FANDOM">Фандом</option>
+              <option value="CHARACTER">Персонаж</option>
+            </select>
+          </label>
+          <label>ID объекта
+            <input id="report-entity-id" placeholder="id заявки, профиля или сообщения" required aria-describedby="report-form-note" />
+          </label>
+          <label>Причина
+            <select id="report-reason">
+              <option value="SPAM">Спам</option>
+              <option value="INSULTS">Оскорбления</option>
+              <option value="ADULT_UNMARKED">18+ без маркировки</option>
+              <option value="FORBIDDEN_CONTENT">Запрещенный контент</option>
+              <option value="FRAUD">Мошенничество</option>
+              <option value="RULES_VIOLATION">Нарушение правил</option>
+              <option value="OTHER">Другое</option>
+            </select>
+          </label>
+          <label>Комментарий
+            <textarea id="report-comment" rows="5" maxlength="4000" placeholder="Что должен увидеть модератор" aria-describedby="report-form-note"></textarea>
+            <span class="char-counter" id="report-comment-counter">0 / 4000</span>
+          </label>
+          <span class="muted-note" id="report-form-note">Комментарий необязателен, но если заполнен, нужен текст от 3 до 4000 символов.</span>
+          <button class="primary-button" type="submit" id="report-submit">Отправить жалобу</button>
+        </form>
+        <section class="content-block wide">
+          <div class="section-title">
+            <div>
+              <h2>Мои жалобы</h2>
+              <p class="muted-note" id="my-reports-count">История жалоб загрузится после входа.</p>
+            </div>
+            <button class="ghost-button" id="refresh-my-reports" type="button">Обновить</button>
+          </div>
+          <div class="profile-listing-tools">
+            <label>Поиск по жалобам
+              <input id="my-reports-search" type="search" placeholder="Тип, id, причина, статус..." />
+            </label>
+            <label>Статус
+              <select id="my-reports-status">
+                <option value="all">Все</option>
+                <option value="OPEN">Открытые</option>
+                <option value="RESOLVED">Решенные</option>
+                <option value="REJECTED">Отклоненные</option>
+              </select>
+            </label>
+          </div>
+          <div class="report-list" id="my-reports">
+            <article><strong>Войдите в аккаунт</strong><p>После отправки жалобы её статус появится здесь.</p></article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog class="canvas-dialog" id="canvas-dialog">
+      <form method="dialog" class="dialog-head">
+        <strong>Мини-холст</strong>
+        <button aria-label="Закрыть">×</button>
+      </form>
+      <div class="canvas-tools">
+        <label>Цвет <input id="brush-color" type="color" value="#2f7d63" /></label>
+        <label>Кисть <input id="brush-size" type="range" min="2" max="22" value="6" /></label>
+        <button id="eraser" type="button">Ластик</button>
+        <button id="clear-canvas" type="button">Очистить</button>
+      </div>
+      <canvas id="draw-canvas" width="400" height="300"></canvas>
+      <div class="dialog-actions">
+        <button class="secondary-button" id="send-drawing" type="button">Отправить рисунок</button>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/auth-boot.js?v=auth-boot-20260531"></script>
+    <script src="/app.js?v=chat-ux-20260531" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+www.cofind2.com {
+  redir https://cofind2.com{uri} permanent
+}
+
+cofind2.com {
+  encode zstd gzip
+
+  handle /api/v1/* {
+    reverse_proxy api:4000
+  }
+
+  handle /ws/chat {
+    reverse_proxy api:4000
+  }
+
+  handle {
+    reverse_proxy web:80
+  }
+}

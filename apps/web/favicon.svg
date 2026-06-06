@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cofind 2">
+  <defs>
+    <linearGradient id="cofind-favicon-bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2FBF9F" />
+      <stop offset="1" stop-color="#6F5CFF" />
+    </linearGradient>
+    <linearGradient id="cofind-favicon-glow" x1="15" y1="12" x2="47" y2="51" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.34" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#cofind-favicon-bg)" />
+  <path d="M10 20C14 12 23 8 34 10C45 12 53 21 54 32C55 44 47 54 35 56C24 58 14 53 10 44C17 48 25 51 35 48C43 46 48 39 47 31C46 24 41 18 33 17C23 15 16 17 10 20Z" fill="url(#cofind-favicon-glow)" />
+  <path d="M29.1 43.4C26.5 45.1 23.2 46 19.7 46C10.8 46 4.8 40.2 4.8 31.9C4.8 23.6 10.9 17.8 19.8 17.8C23.4 17.8 26.7 18.8 29.3 20.7L25.6 27.2C24.1 26.1 22.4 25.5 20.3 25.5C16.4 25.5 13.8 28 13.8 31.9C13.8 35.8 16.4 38.3 20.3 38.3C22.3 38.3 24.1 37.7 25.7 36.5L29.1 43.4Z" fill="#FFFFFF" />
+  <path d="M31.4 45.2V39.6L41.3 30.2C43.1 28.5 43.7 27.4 43.7 26.2C43.7 24.7 42.6 23.8 40.7 23.8C38.7 23.8 36.8 24.8 35.5 26.6L29.7 22.1C32 18.7 36.2 16.6 41.5 16.6C48 16.6 52.6 20 52.6 25.2C52.6 28 51.8 30.6 47.7 34.4L43.3 38.5H53.1V45.2H31.4Z" fill="#FFFFFF" />
+</svg>

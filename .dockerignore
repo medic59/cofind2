@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.turbo
+**/dist
+**/*.log
+.env
+.env.*
+apps/api/uploads
+apps/web/web.out.log
+apps/web/web.err.log
+apps/api/api.out.log
+apps/api/api.err.log
+apps/api/api-*.out.log
+apps/api/api-*.err.log
