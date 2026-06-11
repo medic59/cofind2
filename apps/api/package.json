@@ -11,6 +11,7 @@
     "smoke:listing-page": "node scripts/smoke-listing-page.js",
     "smoke:public-fields": "node scripts/smoke-public-fields.js",
     "smoke:listings-pagination": "node scripts/smoke-listings-pagination.js",
+    "smoke:realtime": "node scripts/smoke-realtime.js",
     "uploads:audit": "node scripts/uploads-audit.js",
     "uploads:cleanup": "node scripts/uploads-audit.js --delete",
     "prisma:format": "prisma format",

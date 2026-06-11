@@ -1,13 +1,17 @@
 import { Controller, Get } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../auth/public.decorator";
+import { ChatRealtimeService } from "../chat/chat-realtime.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @ApiTags("Health")
 @Public()
 @Controller("health")
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: ChatRealtimeService
+  ) {}
 
   @Get()
   health() {
@@ -26,10 +30,11 @@ export class HealthController {
   @Get("ready")
   async ready() {
     const [database, meilisearch] = await Promise.all([this.databaseStatus(), this.meilisearchStatus()]);
+    const realtime = this.realtime.status();
     return {
-      ok: database.ok && meilisearch.ok,
+      ok: database.ok && meilisearch.ok && realtime.ok,
       service: "cofind-api",
-      dependencies: { database, meilisearch },
+      dependencies: { database, meilisearch, realtime },
       timestamp: new Date().toISOString()
     };
   }

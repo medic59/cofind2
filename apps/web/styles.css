@@ -3447,3 +3447,24 @@ html[data-auth-state="user"]:not(.auth-resolved) #auth-button * {
     animation: none;
   }
 }
+
+/* Chat realtime diagnostics */
+.chat-state-message.is-warning {
+  border-left: 3px solid var(--accent-3);
+  background: var(--warm);
+}
+
+.chat-error-code {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.chat-error-code code {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-strong);
+}
+
+#ws-status.is-offline {
+  color: #9a3b2c;
+}

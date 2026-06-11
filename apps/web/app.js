@@ -219,6 +219,10 @@ const chatPageSize = 50;
 let chatHasMore = false;
 let chatLoadingOlder = false;
 let chatAvailability = "loading";
+let chatErrorCode = null; // e.g. CHAT_API_503 / CHAT_API_UNREACHABLE / API_UNREACHABLE
+let chatRealtimeState = "connecting"; // "connecting" | "online" | "offline"
+let chatRealtimeCode = null; // WebSocket close code (e.g. 1006) when offline
+let chatRealtimeReady = true; // /health/ready realtime dependency
 const pendingListingLikes = new Set();
 const pendingMessageLikes = new Set();
 const pendingMessageReactions = new Set();
@@ -356,12 +360,29 @@ function setApiStatus(online, label = online ? "Сервис доступен" :
   apiStatus.classList.toggle("is-offline", state === "offline");
 }
 
-function setWsStatus(online, label = online ? "Чат работает" : "Чат временно недоступен") {
-  if (!wsStatus) return;
-  wsStatus.textContent = label;
-  wsStatus.classList.toggle("is-online", online);
-  wsStatus.classList.toggle("is-offline", !online);
+// Human-readable chat/realtime diagnostic with a specific code instead of a
+// generic "недоступно". Used by the status pill, composer note and chat box.
+function chatDiagnostic() {
+  if (chatAvailability === "unavailable") {
+    return { ok: false, code: chatErrorCode, text: `Чат временно недоступен${chatErrorCode ? ` (${chatErrorCode})` : ""}. Попробуйте обновить страницу позже.` };
+  }
+  if (chatRealtimeState === "offline") {
+    const reason = chatRealtimeReady ? "" : ", realtime-сервис недоступен";
+    return { ok: false, code: chatRealtimeCode ? `WS_${chatRealtimeCode}` : "WS_OFFLINE", text: `Realtime офлайн${chatRealtimeCode ? ` (код ${chatRealtimeCode})` : ""}${reason}. Новые сообщения появятся после обновления страницы.` };
+  }
+  if (chatRealtimeState === "connecting") {
+    return { ok: false, code: "WS_CONNECTING", text: "Realtime: подключение…" };
+  }
+  return { ok: true, code: null, text: "Realtime: онлайн" };
+}
+
+function setWsStatus() {
   updateChatComposerState();
+  if (!wsStatus) return;
+  const diag = chatDiagnostic();
+  wsStatus.textContent = diag.text;
+  wsStatus.classList.toggle("is-online", diag.ok);
+  wsStatus.classList.toggle("is-offline", !diag.ok);
 }
 
 function updateAuthUi() {
@@ -3977,9 +3998,22 @@ async function connectChatSocket() {
   }
   const token = authSession.accessToken ? `?token=${encodeURIComponent(authSession.accessToken)}` : "";
   chatSocket = new WebSocket(`${WS_BASE}${token}`);
-  chatSocket.addEventListener("open", () => setWsStatus(true));
-  chatSocket.addEventListener("close", () => setWsStatus(false));
-  chatSocket.addEventListener("error", () => setWsStatus(false));
+  chatRealtimeState = "connecting";
+  setWsStatus(false);
+  chatSocket.addEventListener("open", () => {
+    chatRealtimeState = "online";
+    chatRealtimeCode = null;
+    setWsStatus(true);
+  });
+  chatSocket.addEventListener("close", (event) => {
+    chatRealtimeState = "offline";
+    chatRealtimeCode = event?.code || null;
+    setWsStatus(false);
+  });
+  chatSocket.addEventListener("error", () => {
+    chatRealtimeState = "offline";
+    setWsStatus(false);
+  });
   chatSocket.addEventListener("message", (event) => {
     try {
       const message = JSON.parse(event.data);
@@ -5977,74 +6011,98 @@ async function loadAdminDashboard() {
 }
 
 async function hydrateFromApi() {
+  // If the API itself is unreachable, the whole page degrades — including chat.
+  let ready;
   try {
-    const ready = await apiFetch("/health/ready");
-    const readinessLabel = ready.ok
-      ? "Сервис доступен"
-      : `Сервис частично недоступен: ${[
-          ready.dependencies?.database?.ok ? null : "DB",
-          ready.dependencies?.meilisearch?.ok ? null : "search"
-        ].filter(Boolean).join("+") || "попробуйте позже"}`;
-    const listingQuery = feedQueryString();
-    const [settings, remoteListings, remoteMessages, plans, tags, genres, fandoms, characters, ads] = await Promise.all([
-      apiFetch("/settings"),
-      apiFetch(`/search/listings${listingQuery ? `?${listingQuery}` : ""}`),
-      apiFetch("/chat/messages"),
-      apiFetch("/subscription/plans"),
-      apiFetch("/tags"),
-      apiFetch("/genres"),
-      apiFetch("/fandoms"),
-      apiFetch("/characters"),
-      apiFetch("/ads/placements")
-    ]);
-    featureFlags = { ...featureFlags, ...settings };
-    applyFeatureFlags();
-    chatAvailability = "ready";
-    const remoteChatMessages = Array.isArray(remoteMessages) ? remoteMessages : [];
-    const feedEnvelope = normalizeListingEnvelope(remoteListings);
-    listings = feedEnvelope.items.map(normalizeListing);
-    feedServerPagination = feedEnvelope.pagination;
-    messages = remoteChatMessages.slice().reverse().map(normalizeMessage);
-    chatHasMore = remoteChatMessages.length >= chatPageSize;
-    catalogGenres = genres;
-    catalogFandoms = fandoms;
-    catalogCharacters = characters;
-    renderPlans(plans);
-    renderCatalogCloud(tags);
-    renderListingTagControls();
-    renderFeedCatalogFilters();
-    renderAds(ads);
-    renderListings();
-    const current = listings.find((listing) => String(listing.id) === String(selectedListing?.id));
-    renderListingDetail(current || listings[0]);
-    renderMessages();
-    setApiStatus(true, readinessLabel, ready.ok ? "online" : "partial");
-    updateSeo(currentViewName());
-    if (deepLinkRoute?.type === "listing") {
-      const route = deepLinkRoute;
-      deepLinkRoute = null;
-      openListing(route.value);
-    } else if (deepLinkRoute?.type === "profile") {
-      const route = deepLinkRoute;
-      deepLinkRoute = null;
-      openProfile(route.value, { listingsPage: route.listingsPage || 1, q: route.q || "", sort: route.sort || "new", updateHistory: false });
-    }
-    if (authSession.accessToken) {
-      try {
-        await loadInbox();
-        loadAdminDashboard();
-      } catch {
-        // Inbox remains on static demo content when the token is stale.
-      }
-    }
-  } catch {
+    ready = await apiFetch("/health/ready");
+  } catch (error) {
     chatAvailability = "unavailable";
+    chatErrorCode = error?.status ? `API_${error.status}` : "API_UNREACHABLE";
     messages = [];
     chatHasMore = false;
     renderMessages({ stickToBottom: false });
     updateChatHistoryControls();
     updateChatComposerState();
     setApiStatus(false, "Сервис временно недоступен");
+    return;
+  }
+  chatRealtimeReady = ready.dependencies?.realtime?.ok !== false;
+  const readinessLabel = ready.ok
+    ? "Сервис доступен"
+    : `Сервис частично недоступен: ${[
+        ready.dependencies?.database?.ok ? null : "DB",
+        ready.dependencies?.meilisearch?.ok ? null : "search",
+        chatRealtimeReady ? null : "realtime"
+      ].filter(Boolean).join("+") || "попробуйте позже"}`;
+  const listingQuery = feedQueryString();
+  // Each endpoint is fetched independently so that ONE failing endpoint never
+  // takes down the chat (or the rest of the page). Chat availability is gated
+  // only by /chat/messages.
+  const safe = (promise, fallback) => promise.catch(() => fallback);
+  let chatError = null;
+  const [settings, remoteListings, remoteMessages, plans, tags, genres, fandoms, characters, ads] = await Promise.all([
+    safe(apiFetch("/settings"), {}),
+    safe(apiFetch(`/search/listings${listingQuery ? `?${listingQuery}` : ""}`), { items: [] }),
+    apiFetch("/chat/messages").catch((error) => { chatError = error; return null; }),
+    safe(apiFetch("/subscription/plans"), []),
+    safe(apiFetch("/tags"), []),
+    safe(apiFetch("/genres"), []),
+    safe(apiFetch("/fandoms"), []),
+    safe(apiFetch("/characters"), []),
+    safe(apiFetch("/ads/placements"), [])
+  ]);
+  featureFlags = { ...featureFlags, ...(settings || {}) };
+  applyFeatureFlags();
+  if (chatError) {
+    chatAvailability = "unavailable";
+    chatErrorCode = chatError?.status ? `CHAT_API_${chatError.status}` : "CHAT_API_UNREACHABLE";
+    messages = [];
+    chatHasMore = false;
+  } else {
+    chatAvailability = "ready";
+    chatErrorCode = null;
+    const remoteChatMessages = Array.isArray(remoteMessages) ? remoteMessages : [];
+    messages = remoteChatMessages.slice().reverse().map(normalizeMessage);
+    chatHasMore = remoteChatMessages.length >= chatPageSize;
+  }
+  try {
+    const feedEnvelope = normalizeListingEnvelope(remoteListings);
+    listings = feedEnvelope.items.map(normalizeListing);
+    feedServerPagination = feedEnvelope.pagination;
+    catalogGenres = genres || [];
+    catalogFandoms = fandoms || [];
+    catalogCharacters = characters || [];
+    renderPlans(plans || []);
+    renderCatalogCloud(tags || []);
+    renderListingTagControls();
+    renderFeedCatalogFilters();
+    renderAds(ads || []);
+    renderListings();
+    const current = listings.find((listing) => String(listing.id) === String(selectedListing?.id));
+    renderListingDetail(current || listings[0]);
+  } catch (error) {
+    console.error("hydrate processing error", error);
+  }
+  renderMessages();
+  updateChatComposerState();
+  setApiStatus(true, readinessLabel, ready.ok ? "online" : "partial");
+  updateSeo(currentViewName());
+  if (deepLinkRoute?.type === "listing") {
+    const route = deepLinkRoute;
+    deepLinkRoute = null;
+    openListing(route.value);
+  } else if (deepLinkRoute?.type === "profile") {
+    const route = deepLinkRoute;
+    deepLinkRoute = null;
+    openProfile(route.value, { listingsPage: route.listingsPage || 1, q: route.q || "", sort: route.sort || "new", updateHistory: false });
+  }
+  if (authSession.accessToken) {
+    try {
+      await loadInbox();
+      loadAdminDashboard();
+    } catch {
+      // Inbox remains on static demo content when the token is stale.
+    }
   }
 }
 
@@ -8357,7 +8415,7 @@ function updateChatComposerState() {
     input.disabled = !canWrite;
     input.placeholder = loggedIn
       ? unavailable
-        ? "Чат временно недоступен"
+        ? `Чат временно недоступен${chatErrorCode ? ` (${chatErrorCode})` : ""}`
         : "Напишите сообщение в общий чат"
       : "Войдите, чтобы написать сообщение в общий чат";
   }
@@ -8382,8 +8440,10 @@ function updateChatComposerState() {
     note.textContent = !loggedIn
       ? "Войдите, чтобы писать в общий чат. Читать сообщения можно без регистрации, если это разрешено правилами."
       : unavailable
-        ? "Чат временно недоступен. Попробуйте обновить страницу позже."
-        : !storedOk
+        ? chatDiagnostic().text
+        : chatRealtimeState === "offline"
+          ? chatDiagnostic().text
+          : !storedOk
           ? "Форматирования слишком много: сократите текст или очистите часть оформления."
           : `Сообщение будет отправлено в ${room.label}.`;
   }
@@ -8427,7 +8487,7 @@ function updateChatHistoryControls() {
   }
   if (status) {
     status.textContent = unavailable
-      ? "Чат временно недоступен. Попробуйте обновить страницу позже."
+      ? chatDiagnostic().text
       : search
         ? "Поиск идет по уже загруженным сообщениям."
         : chatLoadingOlder
@@ -8458,7 +8518,7 @@ function renderMessages({ stickToBottom = true } = {}) {
   if (searchStatus) {
     const room = chatRooms.find((item) => item.slug === activeChatRoom) || chatRooms[0];
     searchStatus.textContent = chatAvailability === "unavailable"
-      ? "Чат временно недоступен. Попробуйте обновить страницу позже."
+      ? chatDiagnostic().text
       : search
         ? `Найдено ${visibleMessages.length} ${plural(visibleMessages.length, ["сообщение", "сообщения", "сообщений"])} по запросу.`
         : activeChatRoom === "general"
@@ -8466,7 +8526,8 @@ function renderMessages({ stickToBottom = true } = {}) {
           : `Показываем ${visibleMessages.length} ${plural(visibleMessages.length, ["сообщение", "сообщения", "сообщений"])} в ${room.label}.`;
   }
   if (chatAvailability === "unavailable") {
-    box.innerHTML = `<article class="message chat-state-message is-error"><h2>Чат временно недоступен.</h2><p>Попробуйте обновить страницу позже.</p></article>`;
+    const diag = chatDiagnostic();
+    box.innerHTML = `<article class="message chat-state-message is-error"><h2>Чат временно недоступен.</h2><p>${escapeHtml(diag.text)}</p>${diag.code ? `<p class="chat-error-code">Код ошибки: <code>${escapeHtml(diag.code)}</code></p>` : ""}<p><button type="button" class="secondary-button" data-chat-retry>Повторить попытку</button></p></article>`;
     updateChatHistoryControls();
     return;
   }
@@ -8508,6 +8569,9 @@ function renderMessages({ stickToBottom = true } = {}) {
       </article>
     `;
   }).join("") : `<article class="message chat-state-message"><h2>${escapeHtml(search ? "Сообщений по запросу не найдено." : "Пока сообщений нет.")}</h2><p>${escapeHtml(search ? "Попробуйте изменить запрос или сбросить поиск." : "Начните обсуждение первым.")}</p><div class="message-actions">${search ? `<button type="button" data-clear-chat-search>Сбросить поиск</button>` : activeChatRoom === "general" ? "" : `<button type="button" data-chat-room-empty="general">Открыть # общий</button>`}</div></article>`;
+  if (chatRealtimeState === "offline") {
+    box.insertAdjacentHTML("afterbegin", `<article class="message chat-state-message is-warning"><p>${escapeHtml(chatDiagnostic().text)}</p></article>`);
+  }
   if (stickToBottom) keepMessagesAtBottom();
   updateChatHistoryControls();
   renderHomeChat();
@@ -8562,6 +8626,16 @@ async function loadOlderChatMessages() {
 }
 
 document.querySelector("#messages")?.addEventListener("click", async (event) => {
+  const retryButton = event.target.closest("[data-chat-retry]");
+  if (retryButton) {
+    event.preventDefault();
+    chatAvailability = "loading";
+    chatErrorCode = null;
+    renderMessages({ stickToBottom: false });
+    connectChatSocket();
+    await hydrateFromApi();
+    return;
+  }
   const profileLink = event.target.closest("[data-open-profile]");
   const emptyRoomButton = event.target.closest("[data-chat-room-empty]");
   const clearSearchButton = event.target.closest("[data-clear-chat-search]");
@@ -8722,7 +8796,7 @@ document.querySelector("#chat-form")?.addEventListener("submit", async (event) =
     return;
   }
   if (chatAvailability === "unavailable") {
-    showToast("Чат временно недоступен. Попробуйте обновить страницу позже.");
+    showToast(chatDiagnostic().text);
     return;
   }
   const input = document.querySelector("#chat-input");

@@ -33,6 +33,16 @@ export class ChatRealtimeService {
     this.logger.log("WebSocket chat attached at /ws/chat");
   }
 
+  // Readiness of the realtime component: the WS server is attached to the HTTP
+  // server and accepting upgrades at /ws/chat.
+  status() {
+    return {
+      ok: Boolean(this.server),
+      path: "/ws/chat",
+      clients: this.server ? this.server.clients.size : 0
+    };
+  }
+
   broadcast(type: string, payload: unknown) {
     const message = JSON.stringify({ type, payload });
     for (const client of this.server?.clients || []) {

@@ -78,7 +78,7 @@ Helper выставляет обе пары переменных Meilisearch: `M
 - REST API: `http://localhost:4000/api/v1`
 - Swagger: `http://localhost:4000/api/docs`
 - Liveness: `GET /api/v1/health` или `GET /api/v1/health/live`
-- Readiness: `GET /api/v1/health/ready` проверяет Postgres и Meilisearch.
+- Readiness: `GET /api/v1/health/ready` проверяет Postgres, Meilisearch и realtime-компонент (`dependencies.realtime` = `{ ok, path: "/ws/chat", clients }`; `ok` отражает, что WS-сервер прикреплён к HTTP-серверу).
 
 Для публичного runtime API подхватывает ближайший `.env`, если переменная еще не задана окружением, и проверяет обязательные значения при старте. В `NODE_ENV=production` нужны сильные разные `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`, `DATABASE_URL`, `MEILISEARCH_HOST`, `MEILISEARCH_MASTER_KEY`, `PUBLIC_WEB_URL`, `PUBLIC_API_BASE`, `PAYMENT_WEBHOOK_SECRET` и `MAIL_WEBHOOK_URL`. Swagger в production выключен по умолчанию; включается только `API_DOCS_ENABLED=true`. Если API стоит за reverse proxy, выставьте `TRUST_PROXY=true`, чтобы rate limit видел реальный клиентский IP.
 
@@ -136,7 +136,8 @@ Helper выставляет обе пары переменных Meilisearch: `M
 - API в production не стартует с пустыми или dev-секретами, ограничивает CORS доменами из `PUBLIC_WEB_URL`, а рискованные endpoint'ы auth/upload/chat/report/payment webhook имеют отдельные rate limits поверх общего лимита.
 - Web-чат показывает кнопку удаления для собственных сообщений и вызывает `DELETE /chat/messages/:id`.
 - Web-чат показывает preview рисунка из мини-холста перед отправкой, проверяет лимит 256KB, загружает рисунок как `purpose: "drawing"` и отображает сохраненный `/uploads/images/...` URL в сообщении.
-- Realtime чат: native WebSocket `ws://localhost:4000/ws/chat`. Для отправки сообщения нужен JWT-токен в query `?token=...` или в payload; WS-сообщения проходят те же проверки доступности пользователя, цитируемого сообщения и рисунка, что и REST.
+- Realtime чат: native WebSocket `ws://localhost:4000/ws/chat` (в проде `wss://cofind2.com/ws/chat`; внешний nginx обязан проксировать `/ws/chat` с заголовками `Upgrade`/`Connection`). Для отправки сообщения нужен JWT-токен в query `?token=...` или в payload; WS-сообщения проходят те же проверки доступности пользователя, цитируемого сообщения и рисунка, что и REST.
+- Доступность чата на фронте развязана с остальной гидрацией: каждый endpoint грузится независимо, и статус чата зависит только от `/chat/messages`, а не от падения соседних `/ads`/`/settings`/каталога. Состояние realtime-сокета отслеживается отдельно (`connecting`/`online`/`offline` + WS-код закрытия). Вместо общего «Чат временно недоступен» страница показывает конкретный код ошибки (`CHAT_API_<status>`, `CHAT_API_UNREACHABLE`, `API_UNREACHABLE`, `WS_<код>`), баннер «realtime офлайн» при живом REST и кнопку «Повторить попытку».
 - Уведомления и блокировки: `/notifications`, `/me/blocks`.
 - `/notifications?page=&pageSize=`, `/me/payments?page=&pageSize=`, `/me/liked-listings?page=&pageSize=`, `/suggestions/my?page=&pageSize=` и `/reports/my?page=&pageSize=` возвращают `hits + pagination`; без `page` endpoint-ы сохраняют совместимый массив для текущего web UI.
 - Чтение несуществующего/чужого уведомления возвращает 404, а повторное удаление блокировки идемпотентно возвращает `{ unblocked: false }`.
