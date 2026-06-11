@@ -208,7 +208,7 @@ let messages = [];
 
 let activeSort = "new";
 let feedPage = 1;
-const feedPageSize = 12;
+const feedPageSize = 20;
 let feedServerPagination = null;
 let feedTotalPages = 1;
 let quotedMessage = null;
@@ -4770,6 +4770,24 @@ function goToFeedPage(page, updateUrl = true) {
   else renderListings();
 }
 
+// Accepts both the paginated listing envelope ({items,total,page,pageSize,
+// totalPages,nextPage}) and the search/legacy shapes ({hits,pagination} | array).
+function normalizeListingEnvelope(result) {
+  if (!result) return { items: [], pagination: null };
+  if (Array.isArray(result)) return { items: result, pagination: null };
+  const items = result.items || result.hits || [];
+  let pagination = result.pagination || null;
+  if (!pagination && (result.total !== undefined || result.page !== undefined)) {
+    pagination = {
+      page: result.page || 1,
+      pageSize: result.pageSize || items.length || feedPageSize,
+      total: result.total ?? items.length,
+      totalPages: result.totalPages || 1
+    };
+  }
+  return { items, pagination };
+}
+
 async function refreshFeedFromApi() {
   if (authSession.accessToken && !blocksLoaded) await loadBlocks();
   if (!apiOnline) {
@@ -4780,8 +4798,9 @@ async function refreshFeedFromApi() {
   try {
     const query = feedQueryString();
     const result = await apiFetch(`/search/listings${query ? `?${query}` : ""}`);
-    listings = (result.hits || result).map(normalizeListing);
-    feedServerPagination = result.pagination || null;
+    const envelope = normalizeListingEnvelope(result);
+    listings = envelope.items.map(normalizeListing);
+    feedServerPagination = envelope.pagination;
     if (feedServerPagination) feedPage = feedServerPagination.page || feedPage;
     renderListings();
     setFeedBusy(false, "Лента обновлена.");
@@ -5982,8 +6001,9 @@ async function hydrateFromApi() {
     applyFeatureFlags();
     chatAvailability = "ready";
     const remoteChatMessages = Array.isArray(remoteMessages) ? remoteMessages : [];
-    listings = (remoteListings.hits || remoteListings).map(normalizeListing);
-    feedServerPagination = remoteListings.pagination || null;
+    const feedEnvelope = normalizeListingEnvelope(remoteListings);
+    listings = feedEnvelope.items.map(normalizeListing);
+    feedServerPagination = feedEnvelope.pagination;
     messages = remoteChatMessages.slice().reverse().map(normalizeMessage);
     chatHasMore = remoteChatMessages.length >= chatPageSize;
     catalogGenres = genres;

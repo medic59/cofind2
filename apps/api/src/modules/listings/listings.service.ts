@@ -25,8 +25,9 @@ export class ListingsService {
   ) {}
 
   async list(query: ListListingsQueryDto, viewerId?: string) {
-    const paged = query.page !== undefined || query.pageSize !== undefined;
-    const pagination = this.pagination(query);
+    const page = Math.max(1, Number(query.page || 1));
+    const pageSize = Math.min(50, Math.max(1, Number(query.pageSize ?? query.limit ?? 20)));
+    const skip = (page - 1) * pageSize;
     const where: Prisma.ListingWhereInput = {
       status: ListingStatus.PUBLISHED,
       moderationStatus: ModerationStatus.APPROVED,
@@ -45,34 +46,24 @@ export class ListingsService {
         { author: { profile: { username: { contains: query.q, mode: "insensitive" } } } }
       ];
     }
-    if (!paged) {
-      const listings = await this.prisma.listing.findMany({
-        where,
-        include: includeListing,
-        orderBy: { publishedAt: "desc" },
-        take: 50
-      });
-      return this.withListingMetrics(listings, viewerId);
-    }
     const [total, listings] = await Promise.all([
       this.prisma.listing.count({ where }),
       this.prisma.listing.findMany({
         where,
         include: includeListing,
         orderBy: { publishedAt: "desc" },
-        skip: pagination.skip,
-        take: pagination.pageSize
+        skip,
+        take: pageSize
       })
     ]);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
     return {
-      source: "postgres",
-      hits: await this.withListingMetrics(listings, viewerId),
-      pagination: {
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / pagination.pageSize))
-      }
+      items: await this.withListingMetrics(listings, viewerId),
+      total,
+      page,
+      pageSize,
+      totalPages,
+      nextPage: page < totalPages ? page + 1 : null
     };
   }
 

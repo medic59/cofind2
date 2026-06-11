@@ -72,9 +72,13 @@ export function toPublicListing(listing: any, options: PublicListingOptions = {}
   return view;
 }
 
-// Serializes either the legacy array shape or the { source, hits, pagination } shape.
+// Serializes the listing collection whether it is a bare array, the paginated
+// { items, total, page, ... } envelope, or the search { source, hits, ... } shape.
 export function serializeListingResult(result: any, options: PublicListingOptions = {}) {
   if (Array.isArray(result)) return result.map((item) => toPublicListing(item, options));
+  if (result && Array.isArray(result.items)) {
+    return { ...result, items: result.items.map((item: any) => toPublicListing(item, options)) };
+  }
   if (result && Array.isArray(result.hits)) {
     return { ...result, hits: result.hits.map((item: any) => toPublicListing(item, options)) };
   }

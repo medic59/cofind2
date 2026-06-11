@@ -61,7 +61,7 @@ async function main() {
 
   // --- /listings ---
   const list = await getJson("/listings?pageSize=3");
-  const hits = Array.isArray(list.body) ? list.body : list.body?.hits;
+  const hits = Array.isArray(list.body) ? list.body : (list.body?.items || list.body?.hits);
   check("/listings 200", list.status === 200, `status=${list.status}`);
   check("/listings has hits", Array.isArray(hits) && hits.length > 0);
   const sample = (hits || [])[0] || {};

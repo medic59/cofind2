@@ -1,6 +1,6 @@
 import { AgeRating, FandomMode, ListingType, ResponseStatus } from "@prisma/client";
 import { Transform, Type } from "class-transformer";
-import { IsArray, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from "class-validator";
 
 export class ListListingsQueryDto {
   @IsOptional()
@@ -9,12 +9,19 @@ export class ListListingsQueryDto {
   @Min(1)
   page?: number;
 
+  // Page size is clamped to [1, 50] in the service (default 20). `limit` is an
+  // accepted alias; values above 50 are capped, not rejected.
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(50)
   pageSize?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number;
 
   @IsOptional()
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value)

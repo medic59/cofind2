@@ -27,7 +27,7 @@ async function firstPublishedSlug() {
   const response = await fetch(`${API_BASE}/listings?pageSize=1`);
   if (!response.ok) throw new Error(`GET /listings failed: ${response.status}`);
   const data = await response.json();
-  const hits = Array.isArray(data) ? data : data.hits;
+  const hits = Array.isArray(data) ? data : (data.items || data.hits);
   const slug = hits && hits[0] && hits[0].slug;
   if (!slug) throw new Error("No published listing with a slug available to test against");
   return slug;
