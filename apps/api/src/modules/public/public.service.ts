@@ -40,6 +40,16 @@ export class PublicService {
     });
   }
 
+  // Approved catalog entities (slug + updatedAt) for the dynamic sitemap.
+  async sitemapCatalog() {
+    const [fandoms, genres, tags] = await Promise.all([
+      this.prisma.fandom.findMany({ where: { status: "APPROVED" }, select: { slug: true, updatedAt: true }, orderBy: { name: "asc" } }),
+      this.prisma.genre.findMany({ where: { status: "APPROVED" }, select: { slug: true, updatedAt: true }, orderBy: { name: "asc" } }),
+      this.prisma.tag.findMany({ where: { status: "APPROVED" }, select: { slug: true, updatedAt: true }, orderBy: { name: "asc" } })
+    ]);
+    return { fandoms, genres, tags };
+  }
+
   // Published, approved listings from visible authors — for the dynamic sitemap.
   sitemapListings() {
     return this.prisma.listing.findMany({

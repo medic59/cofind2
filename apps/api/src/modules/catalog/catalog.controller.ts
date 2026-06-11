@@ -1,18 +1,68 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from "@nestjs/swagger";
 import { PageQueryDto } from "../../common/page-query.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { CurrentUser, RequestUser } from "../auth/current-user.decorator";
 import { Public } from "../auth/public.decorator";
 import { toPublicCatalogItem } from "../../common/public-view";
+import { ListingsService } from "../listings/listings.service";
 import { CatalogService } from "./catalog.service";
+import { CatalogKind, isCatalogKind, renderCatalogDetail, renderCatalogIndex, renderCatalogNotFound } from "./catalog-page.renderer";
 import { CreateSuggestionDto } from "./dto";
+
+function publicWebUrl() {
+  return String(process.env.PUBLIC_WEB_URL || "").split(",")[0].trim().replace(/\/+$/, "");
+}
+
+const FILTER_KEY: Record<CatalogKind, "fandom" | "genre" | "tag" | "character"> = {
+  fandoms: "fandom",
+  genres: "genre",
+  tags: "tag",
+  characters: "character"
+};
 
 @ApiTags("Catalog")
 @Controller()
 @UseGuards(AuthGuard)
 export class CatalogController {
-  constructor(private readonly catalog: CatalogService) {}
+  constructor(
+    private readonly catalog: CatalogService,
+    private readonly listings: ListingsService
+  ) {}
+
+  @Public()
+  @ApiExcludeEndpoint()
+  @Get("catalog/:kind/page")
+  async catalogIndex(@Param("kind") kind: string, @Res() res: any) {
+    const webUrl = publicWebUrl();
+    if (!isCatalogKind(kind)) {
+      res.status(404).type("html").send(renderCatalogNotFound("fandoms", webUrl));
+      return;
+    }
+    const entities = await this.catalog.listEntities(kind);
+    res.status(200).type("html").send(renderCatalogIndex(kind, entities, webUrl));
+  }
+
+  @Public()
+  @ApiExcludeEndpoint()
+  @Get("catalog/:kind/:slug/page")
+  async catalogDetail(@Param("kind") kind: string, @Param("slug") slug: string, @Res() res: any) {
+    const webUrl = publicWebUrl();
+    if (!isCatalogKind(kind)) {
+      res.status(404).type("html").send(renderCatalogNotFound("fandoms", webUrl));
+      return;
+    }
+    const entity = await this.catalog.entityBySlug(kind, slug);
+    if (!entity) {
+      res.status(404).type("html").send(renderCatalogNotFound(kind, webUrl));
+      return;
+    }
+    const result: any = await this.listings.list({ [FILTER_KEY[kind]]: entity.slug, pageSize: 20 } as any);
+    const items = Array.isArray(result) ? result : result.items || [];
+    const total = Array.isArray(result) ? items.length : (result.total ?? items.length);
+    const siblings = await this.catalog.siblings(kind, entity.slug);
+    res.status(200).type("html").send(renderCatalogDetail({ kind, entity, listings: items, total, siblings, webUrl }));
+  }
 
   @Public()
   @Get("tags")

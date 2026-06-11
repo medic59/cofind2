@@ -5,7 +5,9 @@ import { Public } from "../auth/public.decorator";
 import { PublicAdsQueryDto, SeoPageQueryDto } from "./dto";
 import { PublicService } from "./public.service";
 
-const SITEMAP_ROUTES = ["/", "/feed", "/chat", "/suggestions", "/help", "/rules", "/privacy", "/contacts"];
+const SITEMAP_ROUTES = ["/", "/feed", "/chat", "/suggestions", "/help", "/rules", "/privacy", "/contacts", "/fandoms", "/genres", "/tags"];
+
+type SlugDated = { slug: string; updatedAt: Date };
 
 function publicWebUrl() {
   return String(process.env.PUBLIC_WEB_URL || "").split(",")[0].trim().replace(/\/+$/, "");
@@ -15,17 +17,33 @@ function escapeXml(value: string) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function renderSitemap(webUrl: string, listings: Array<{ slug: string; updatedAt: Date }>) {
+function entryWithLastmod(loc: string, updatedAt: Date) {
+  return `  <url><loc>${escapeXml(loc)}</loc><lastmod>${new Date(updatedAt).toISOString()}</lastmod></url>`;
+}
+
+function renderSitemap(
+  webUrl: string,
+  listings: SlugDated[],
+  catalog: { fandoms: SlugDated[]; genres: SlugDated[]; tags: SlugDated[] }
+) {
   const urls: string[] = [];
   for (const path of SITEMAP_ROUTES) {
     urls.push(`  <url><loc>${escapeXml(`${webUrl}${path}`)}</loc></url>`);
   }
+  const catalogGroups: Array<[string, SlugDated[]]> = [
+    ["fandoms", catalog.fandoms],
+    ["genres", catalog.genres],
+    ["tags", catalog.tags]
+  ];
+  for (const [kind, entities] of catalogGroups) {
+    for (const entity of entities) {
+      if (!entity.slug) continue;
+      urls.push(entryWithLastmod(`${webUrl}/${kind}/${encodeURIComponent(entity.slug)}`, entity.updatedAt));
+    }
+  }
   for (const listing of listings) {
     if (!listing.slug) continue;
-    urls.push(
-      `  <url><loc>${escapeXml(`${webUrl}/listings/${encodeURIComponent(listing.slug)}`)}</loc>` +
-      `<lastmod>${new Date(listing.updatedAt).toISOString()}</lastmod></url>`
-    );
+    urls.push(entryWithLastmod(`${webUrl}/listings/${encodeURIComponent(listing.slug)}`, listing.updatedAt));
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
 }
@@ -62,7 +80,10 @@ export class PublicController {
   @Get("sitemap.xml")
   @ApiExcludeEndpoint()
   async sitemap(@Res() res: any) {
-    const listings = await this.publicService.sitemapListings();
-    res.status(200).type("application/xml").send(renderSitemap(publicWebUrl(), listings));
+    const [listings, catalog] = await Promise.all([
+      this.publicService.sitemapListings(),
+      this.publicService.sitemapCatalog()
+    ]);
+    res.status(200).type("application/xml").send(renderSitemap(publicWebUrl(), listings, catalog));
   }
 }

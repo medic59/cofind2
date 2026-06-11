@@ -5,9 +5,53 @@ import { paged, pagination } from "../../common/pagination";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateSuggestionDto } from "./dto";
 
+type CatalogKind = "fandoms" | "genres" | "tags" | "characters";
+
 @Injectable()
 export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private model(kind: CatalogKind) {
+    if (kind === "fandoms") return this.prisma.fandom;
+    if (kind === "genres") return this.prisma.genre;
+    if (kind === "tags") return this.prisma.tag;
+    return this.prisma.character;
+  }
+
+  // Public catalog SSR helpers.
+  entityBySlug(kind: CatalogKind, slug: string) {
+    const where: any = { slug: slug.toLowerCase(), status: CatalogStatus.APPROVED };
+    if (kind === "characters") {
+      return this.prisma.character.findFirst({ where, include: { fandom: { select: { slug: true, name: true } } } });
+    }
+    return (this.model(kind) as any).findFirst({ where });
+  }
+
+  listEntities(kind: CatalogKind) {
+    return (this.model(kind) as any).findMany({
+      where: { status: CatalogStatus.APPROVED },
+      select: { slug: true, name: true },
+      orderBy: { name: "asc" }
+    });
+  }
+
+  async siblings(kind: CatalogKind, excludeSlug: string, limit = 24) {
+    return (this.model(kind) as any).findMany({
+      where: { status: CatalogStatus.APPROVED, slug: { not: excludeSlug.toLowerCase() } },
+      select: { slug: true, name: true },
+      orderBy: { name: "asc" },
+      take: limit
+    });
+  }
+
+  // slug + updatedAt for the dynamic sitemap.
+  sitemapEntities(kind: CatalogKind) {
+    return (this.model(kind) as any).findMany({
+      where: { status: CatalogStatus.APPROVED },
+      select: { slug: true, updatedAt: true },
+      orderBy: { name: "asc" }
+    });
+  }
 
   tags() {
     return this.prisma.tag.findMany({

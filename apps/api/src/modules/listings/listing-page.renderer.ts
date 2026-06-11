@@ -78,7 +78,7 @@ function pluralRu(count: number, forms: [string, string, string]) {
   return forms[2];
 }
 
-function documentShell(options: {
+export function documentShell(options: {
   title: string;
   description: string;
   canonical: string;

@@ -7,6 +7,7 @@ import { ListingsService } from "./listings.service";
 @Module({
   imports: [AuthModule, MessagingModule],
   controllers: [ListingsController],
-  providers: [ListingsService]
+  providers: [ListingsService],
+  exports: [ListingsService]
 })
 export class ListingsModule {}

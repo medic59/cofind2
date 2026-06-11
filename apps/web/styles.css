@@ -3468,3 +3468,37 @@ html[data-auth-state="user"]:not(.auth-resolved) #auth-button * {
 #ws-status.is-offline {
   color: #9a3b2c;
 }
+
+/* Server-rendered catalog pages (/fandoms, /genres/<slug>, ...) */
+.catalog-breadcrumb {
+  max-width: 820px;
+  margin: 16px auto 0;
+  padding: 0 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.catalog-breadcrumb a {
+  color: var(--accent-strong);
+}
+
+.catalog-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catalog-chips a {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.catalog-chips a:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
