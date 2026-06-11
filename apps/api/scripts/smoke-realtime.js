@@ -52,6 +52,7 @@ async function main() {
   check("realtime.ok === true", body?.dependencies?.realtime?.ok === true, JSON.stringify(body?.dependencies?.realtime));
   check("realtime.path === /ws/chat", body?.dependencies?.realtime?.path === "/ws/chat");
   check("realtime.clients is a number", typeof body?.dependencies?.realtime?.clients === "number");
+  check("realtime.redis reported", ["connected", "disconnected", "disabled"].includes(body?.dependencies?.realtime?.redis), `redis=${body?.dependencies?.realtime?.redis}`);
 
   const { opened, ready } = await handshake();
   check("WS /ws/chat upgrades (open)", opened);

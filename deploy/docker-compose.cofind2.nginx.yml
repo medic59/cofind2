@@ -28,6 +28,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # Realtime chat fan-out across API instances (pub/sub only, no persistence).
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build:
       context: ..
@@ -42,6 +53,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cofind}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cofind}?schema=public
       MEILISEARCH_HOST: http://meilisearch:7700
       MEILI_HOST: http://meilisearch:7700
+      REDIS_URL: redis://redis:6379
     volumes:
       - uploads-data:/app/apps/api/uploads
     ports:
@@ -55,6 +67,8 @@ services:
       postgres:
         condition: service_healthy
       meilisearch:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   web:
