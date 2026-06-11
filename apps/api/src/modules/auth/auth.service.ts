@@ -106,14 +106,18 @@ export class AuthService {
   setSessionCookies(response: { setHeader: (name: string, value: string | string[]) => void }, session: { accessToken: string; refreshToken: string }) {
     response.setHeader("Set-Cookie", [
       this.cookieHeader("cofind_access", session.accessToken, 15 * 60),
-      this.cookieHeader("cofind_session", session.refreshToken, 30 * 24 * 60 * 60)
+      this.cookieHeader("cofind_session", session.refreshToken, 30 * 24 * 60 * 60),
+      // Readable (non-HttpOnly) hint so the static web shell can render the correct
+      // header auth state on first paint without flicker. Carries no secret value.
+      this.hintCookieHeader("1", 30 * 24 * 60 * 60)
     ]);
   }
 
   clearSessionCookies(response: { setHeader: (name: string, value: string | string[]) => void }) {
     response.setHeader("Set-Cookie", [
       this.cookieHeader("cofind_access", "", 0),
-      this.cookieHeader("cofind_session", "", 0)
+      this.cookieHeader("cofind_session", "", 0),
+      this.hintCookieHeader("", 0)
     ]);
   }
 
@@ -328,6 +332,17 @@ export class AuthService {
       `${name}=${encodeURIComponent(value)}`,
       "Path=/",
       "HttpOnly",
+      "SameSite=Lax",
+      `Max-Age=${maxAgeSeconds}`,
+      secure
+    ].filter(Boolean).join("; ");
+  }
+
+  private hintCookieHeader(value: string, maxAgeSeconds: number) {
+    const secure = process.env.NODE_ENV === "production" ? "Secure" : "";
+    return [
+      `cofind_auth=${value}`,
+      "Path=/",
       "SameSite=Lax",
       `Max-Age=${maxAgeSeconds}`,
       secure

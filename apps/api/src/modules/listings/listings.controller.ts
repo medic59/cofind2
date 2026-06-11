@@ -1,11 +1,19 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, NotFoundException, Param, Patch, Post, Query, Res, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from "@nestjs/swagger";
 import { PageQueryDto } from "../../common/page-query.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { CurrentUser, RequestUser } from "../auth/current-user.decorator";
 import { Public } from "../auth/public.decorator";
 import { CreateListingDto, ListListingsQueryDto, RespondListingDto, UpdateListingDto, UpdateResponseStatusDto } from "./dto";
+import { renderListingNotFound, renderListingPage } from "./listing-page.renderer";
 import { ListingsService } from "./listings.service";
+
+function publicWebUrl() {
+  return String(process.env.PUBLIC_WEB_URL || "")
+    .split(",")[0]
+    .trim()
+    .replace(/\/+$/, "");
+}
 
 @ApiTags("Listings")
 @Controller("listings")
@@ -41,6 +49,23 @@ export class ListingsController {
   @Get("mine/:id")
   getMine(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.listings.getMine(user.id, id);
+  }
+
+  @Public()
+  @ApiExcludeEndpoint()
+  @Get(":slug/page")
+  async page(@Param("slug") slug: string, @Res() res: any) {
+    const webUrl = publicWebUrl();
+    try {
+      const listing = await this.listings.get(slug);
+      res.status(200).type("html").send(renderListingPage(listing, webUrl, slug));
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        res.status(404).type("html").send(renderListingNotFound(webUrl, slug));
+        return;
+      }
+      throw error;
+    }
   }
 
   @Public()

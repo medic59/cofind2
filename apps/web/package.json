@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/serve.js",
     "build": "node scripts/build.js",
-    "smoke": "node scripts/smoke.js"
+    "smoke": "node scripts/smoke.js",
+    "test:auth-state": "node scripts/auth-state.test.js"
   }
 }

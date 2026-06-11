@@ -89,6 +89,47 @@ let authSession = {
   user: readStoredJson("cofindUser")
 };
 let authSessionVersion = 0;
+// Header auth state is "pending" until the cookie session is verified, so the
+// profile button can show a skeleton instead of flashing the wrong label.
+let authResolved = false;
+
+function hasAuthHintCookie() {
+  return /(?:^|;\s*)cofind_auth=1(?:;|$)/.test(document.cookie);
+}
+
+function clearAuthHintCookie() {
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `cofind_auth=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+}
+
+function applyAuthStateAttr() {
+  const el = document.documentElement;
+  const pendingUser = !authResolved && hasAuthHintCookie();
+  el.dataset.authState = isAuthenticated() || pendingUser ? "user" : "guest";
+  el.classList.toggle("auth-resolved", authResolved);
+}
+
+function reconcileBootAuthState() {
+  if (!hasAuthHintCookie()) {
+    // No live server session: discard any stale client tokens so the header
+    // never shows logged-in chrome (ЛК / Сообщения / Выйти) to a guest.
+    if (authSession.accessToken || authSession.refreshToken || authSession.user) {
+      authSession = { accessToken: null, refreshToken: null, user: null };
+      try {
+        localStorage.removeItem("cofindAccessToken");
+        localStorage.removeItem("cofindRefreshToken");
+        localStorage.removeItem("cofindUser");
+      } catch {}
+    }
+    authResolved = true;
+  } else if (isAuthenticated()) {
+    // Cached credentials + live session hint: render the user header immediately;
+    // background verification (loadMe) still runs and can sign out on failure.
+    authResolved = true;
+  }
+  // else: hint cookie present but no cached creds -> stay pending (skeleton)
+  // until bootstrapAuthFromCookie() resolves.
+}
 
 let listings = [
   {
@@ -205,6 +246,8 @@ let privateHasMore = false;
 let privateLoadingOlder = false;
 let activeInboxFilter = "all";
 let blocksCache = [];
+let blocksLoaded = false;
+let blocksLoadingPromise = null;
 let recentListings = [];
 let pendingViewAfterAuth = null;
 let pendingPathAfterAuth = null;
@@ -357,6 +400,7 @@ function updateAuthUi() {
   applyFeatureFlags();
   updateHeaderNotificationBadge();
   updateWriteAccessUi();
+  applyAuthStateAttr();
 }
 
 function updateAdminRoleNote() {
@@ -418,12 +462,39 @@ function persistSession(session) {
   localStorage.setItem("cofindAccessToken", session.accessToken);
   localStorage.setItem("cofindRefreshToken", session.refreshToken);
   localStorage.setItem("cofindUser", JSON.stringify(session.user));
+  authResolved = true;
   updateAuthUi();
+}
+
+async function loadBlocks({ force = false } = {}) {
+  if (!authSession.accessToken) {
+    blocksCache = [];
+    blocksLoaded = false;
+    syncBlockedAuthorUi();
+    return blocksCache;
+  }
+  if (blocksLoadingPromise && !force) return blocksLoadingPromise;
+  blocksLoadingPromise = apiFetch("/me/blocks")
+    .then((blocks) => {
+      renderBlocks(Array.isArray(blocks) ? blocks : []);
+      blocksLoaded = true;
+      return blocksCache;
+    })
+    .catch(() => {
+      blocksLoaded = true;
+      syncBlockedAuthorUi();
+      return blocksCache;
+    })
+    .finally(() => {
+      blocksLoadingPromise = null;
+    });
+  return blocksLoadingPromise;
 }
 
 function saveSession(session) {
   persistSession(session);
   if (currentViewName() === "auth" && !document.querySelector("#me-display-name")) return;
+  loadBlocks({ force: true });
   hydrateFromApi();
   connectChatSocket();
   loadMe();
@@ -441,6 +512,8 @@ function clearStoredSession() {
   localStorage.removeItem("cofindAccessToken");
   localStorage.removeItem("cofindRefreshToken");
   localStorage.removeItem("cofindUser");
+  clearAuthHintCookie();
+  authResolved = true;
   updateAuthUi();
 }
 
@@ -478,6 +551,9 @@ function clearSession() {
   adminLoadedTabs.clear();
   activeAdminTab = "overview";
   activePrivateConversationId = null;
+  blocksCache = [];
+  blocksLoaded = false;
+  blocksLoadingPromise = null;
   inboxPayload = { conversations: [], sentResponses: [], incomingResponses: [] };
   inboxConversations = [];
   renderInbox(inboxPayload);
@@ -486,6 +562,7 @@ function clearSession() {
   renderPrivateMessages([]);
   setPrivateComposer(false, "Сначала войдите и откройте диалог из списка.");
   clearUserActionState();
+  renderBlocks([]);
   updateAuthUi();
   chatSocket?.close();
   chatSocket = null;
@@ -551,10 +628,23 @@ async function refreshAuthSession() {
 }
 
 async function bootstrapAuthFromCookie() {
-  if (authSession.accessToken) return false;
+  if (authSession.accessToken) {
+    authResolved = true;
+    updateAuthUi();
+    return false;
+  }
   const restored = await refreshAuthSession();
-  if (!restored) return false;
+  if (!restored) {
+    // No live session behind the hint cookie: settle on the guest header.
+    clearAuthHintCookie();
+    authResolved = true;
+    updateAuthUi();
+    return false;
+  }
+  authResolved = true;
+  updateAuthUi();
   await Promise.all([
+    loadBlocks({ force: true }),
     loadMe(),
     loadPreferences(),
     loadInbox(),
@@ -640,7 +730,7 @@ function seoFallbackForView(name) {
     return {
       title: `${selectedListing.title} - заявка Cofind 2`,
       description: clipText(`${selectedListing.author}: ${selectedListing.body}`, 180),
-      canonical: `${location.origin}${listingHref(selectedListing.id)}`,
+      canonical: `${location.origin}${listingHref(selectedListing)}`,
       ogTitle: selectedListing.title,
       ogDescription: clipText(selectedListing.body, 220)
     };
@@ -688,7 +778,7 @@ function updateStructuredData(name) {
       itemListElement: listings.slice(0, 12).map((listing, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        url: `${location.origin}${listingHref(listing.id)}`,
+        url: `${location.origin}${listingHref(listing)}`,
         name: listing.title
       }))
     });
@@ -700,7 +790,7 @@ function updateStructuredData(name) {
       "@type": "CreativeWork",
       name: selectedListing.title,
       description: clipText(selectedListing.body, 500),
-      url: `${location.origin}${listingHref(selectedListing.id)}`,
+      url: `${location.origin}${listingHref(selectedListing)}`,
       author: {
         "@type": "Person",
         name: selectedListing.author,
@@ -796,7 +886,7 @@ function viewPath(name) {
     contacts: "/contacts",
     report: "/reports/new",
     admin: adminUrl(),
-    listing: selectedListing?.id ? `/listing/${encodeURIComponent(selectedListing.id)}` : "/listing",
+    listing: selectedListing ? listingHref(selectedListing) : "/listing",
     profile: profileUrl()
   };
   return map[name] || `/${name}`;
@@ -1085,10 +1175,10 @@ function openAppPath(path, { deferRemote = false, updateHistory = true } = {}) {
     setView("admin", { updateHistory, url: routeUrl });
     return true;
   }
-  if (section === "listing" && value) {
+  if ((section === "listing" || section === "listings") && value) {
     if (deferRemote) {
       deepLinkRoute = { type: "listing", value };
-      const localListing = listings.find((listing) => String(listing.id) === String(value));
+      const localListing = listings.find((listing) => String(listing.id) === String(value) || String(listing.slug) === String(value));
       if (localListing) renderListingDetail(localListing);
       setView("listing", { updateHistory });
     } else {
@@ -1303,7 +1393,7 @@ function listingTaxonomy(label, values = [], limit = 4) {
 
 function listingCard(item) {
   const responseText = `${item.responses} ${plural(item.responses, ["отклик", "отклика", "откликов"])}`;
-  const path = listingHref(item.id);
+  const path = listingHref(item);
   const author = item.authorUsername
     ? `<a href="/profile/${encodeURIComponent(item.authorUsername)}" data-open-profile="${escapeHtml(item.authorUsername)}">${escapeHtml(item.author)}</a>`
     : escapeHtml(item.author);
@@ -1340,7 +1430,7 @@ function listingCard(item) {
 }
 
 function homeListingCard(item) {
-  const path = listingHref(item.id);
+  const path = listingHref(item);
   const author = item.authorUsername
     ? `<a href="/profile/${encodeURIComponent(item.authorUsername)}" data-open-profile="${escapeHtml(item.authorUsername)}">${escapeHtml(item.author)}</a>`
     : escapeHtml(item.author);
@@ -1366,7 +1456,7 @@ function homeListingCard(item) {
 }
 
 function recentListingCard(item) {
-  const path = listingHref(item.id);
+  const path = listingHref(item);
   const tags = [...new Set([...(item.tags || []), ...(item.genres || []), ...(item.fandoms || []), ...(item.characters || [])])]
     .slice(0, 5)
     .map((tag) => `<span>${escapeHtml(tag)}</span>`)
@@ -1391,8 +1481,9 @@ function persistRecentListings() {
 function renderRecentListings() {
   const box = document.querySelector("#home-recent-listings");
   if (!box) return;
-  box.innerHTML = recentListings.length
-    ? recentListings.slice(0, 4).map(recentListingCard).join("")
+  const visibleRecent = visibleListingsForUser(recentListings);
+  box.innerHTML = visibleRecent.length
+    ? visibleRecent.slice(0, 4).map(recentListingCard).join("")
     : `<article class="home-live-listing"><h3>История пока пустая</h3><p>Откройте несколько заявок из ленты, и быстрые ссылки появятся здесь.</p></article>`;
 }
 
@@ -1410,6 +1501,7 @@ function loadRecentListings() {
 function rememberRecentListing(item) {
   if (!item?.id) return;
   const normalized = normalizeListing(item);
+  if (listingIsFromBlockedAuthor(normalized)) return;
   recentListings = [
     { ...normalized, viewedAt: new Date().toISOString() },
     ...recentListings.filter((listing) => String(listing.id) !== String(normalized.id))
@@ -1418,14 +1510,22 @@ function rememberRecentListing(item) {
   renderRecentListings();
 }
 
-function listingHref(id) {
-  return id ? `/listing/${encodeURIComponent(id)}` : "/listing";
+function listingHref(listingOrId) {
+  if (listingOrId && typeof listingOrId === "object") {
+    if (listingOrId.slug) return `/listings/${encodeURIComponent(listingOrId.slug)}`;
+    return listingOrId.id ? `/listing/${encodeURIComponent(listingOrId.id)}` : "/listing";
+  }
+  return listingOrId ? `/listing/${encodeURIComponent(listingOrId)}` : "/listing";
+}
+
+function isLikelyListingId(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ""));
 }
 
 function renderHomeListings() {
   const box = document.querySelector("#home-live-listings");
   if (!box) return;
-  const latest = [...listings]
+  const latest = visibleListingsForUser(listings)
     .sort((a, b) => {
       const aTime = a.publishedAt || a.createdAt ? new Date(a.publishedAt || a.createdAt).getTime() : a.created || 0;
       const bTime = b.publishedAt || b.createdAt ? new Date(b.publishedAt || b.createdAt).getTime() : b.created || 0;
@@ -1457,7 +1557,7 @@ function renderListings() {
   const onlyOpen = document.querySelector("#feed-open")?.checked;
   const onlyNew = document.querySelector("#feed-new")?.checked;
 
-  let filtered = listings.filter((item) => {
+  let filtered = visibleListingsForUser(listings).filter((item) => {
     const haystack = normalizeSearchText([item.title, item.author, item.body, ...(item.tags || []), ...(item.genres || []), ...(item.fandoms || []), ...(item.characters || [])].join(" "));
     return (
       (!search || haystack.includes(search)) &&
@@ -1480,12 +1580,13 @@ function renderListings() {
   const list = document.querySelector("#listing-list");
   const count = document.querySelector("#feed-count");
   if (!list || !count) return;
-  const total = feedServerPagination?.total ?? filtered.length;
+  const hasBlockedAuthors = Boolean(authSession.accessToken && blockedUserIds().size);
+  const total = feedServerPagination && !hasBlockedAuthors ? feedServerPagination.total : filtered.length;
   const pageSize = feedServerPagination?.pageSize ?? feedPageSize;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   feedTotalPages = totalPages;
   feedPage = Math.min(Math.max(1, feedPage), totalPages);
-  const visible = feedServerPagination ? filtered : filtered.slice((feedPage - 1) * pageSize, feedPage * pageSize);
+  const visible = feedServerPagination && !hasBlockedAuthors ? filtered : filtered.slice((feedPage - 1) * pageSize, feedPage * pageSize);
   count.textContent = `${total} ${plural(total, ["заявка", "заявки", "заявок"])}`;
   renderFeedFilterChips();
   renderFeedQuickFilters();
@@ -1493,7 +1594,7 @@ function renderListings() {
   if (visible.length) {
     list.innerHTML = visible.map(listingCard).join("");
   } else {
-    const hasAnyListings = listings.length > 0;
+    const hasAnyListings = visibleListingsForUser(listings).length > 0;
     list.innerHTML = hasAnyListings
       ? `<article class="listing-card feed-empty-state"><h2>Пока нет заявок по выбранным фильтрам.</h2><p>Попробуйте расширить поиск или начните новый набор сами.</p><div class="button-row"><button type="button" class="secondary-button" data-empty-feed-action="reset">Сбросить фильтры</button><a class="ghost-button" href="/me/listings/new" data-view-link="new-listing">Создать заявку</a></div></article>`
       : `<article class="listing-card feed-empty-state"><h2>Заявок пока нет.</h2><p>Создайте первую заявку и помогите запустить сообщество.</p><div class="button-row"><a class="secondary-button" href="/me/listings/new" data-view-link="new-listing">Создать заявку</a></div></article>`;
@@ -2439,6 +2540,8 @@ function updateWriteAccessUi() {
   updateListingEditorAuthState();
   updateListingResponseAccessState();
   updateListingResponseState();
+  updateListingBlockedState();
+  updatePublicProfileBlockedState();
   updatePrivateComposerState();
   updateChatComposerState();
 }
@@ -2464,6 +2567,221 @@ function syncListingLikeState(id, likes, likedByMe) {
     selectedListing.likes = likes;
     selectedListing.likedByMe = likedByMe;
   }
+}
+
+function normalizeBlock(block = {}) {
+  const blocked = block.blocked || block.user || {};
+  const profile = blocked.profile || block.profile || {};
+  const id = block.blockedId || blocked.id || block.userId || block.authorId || block.id || "";
+  return {
+    ...block,
+    blockedId: id,
+    blocked: {
+      ...blocked,
+      id,
+      role: blocked.role || block.role || "USER",
+      status: blocked.status || block.status || "ACTIVE",
+      profile: {
+        ...profile,
+        displayName: profile.displayName || block.displayName || block.name || profile.username || "",
+        username: profile.username || block.username || "",
+        avatarUrl: profile.avatarUrl || block.avatarUrl || ""
+      }
+    }
+  };
+}
+
+function blockedUserId(block = {}) {
+  return block.blockedId || block.blocked?.id || block.userId || block.authorId || block.id || "";
+}
+
+function blockedUserIds() {
+  return new Set(blocksCache.map((block) => blockedUserId(block)).filter(Boolean).map(String));
+}
+
+function isUserBlocked(userId) {
+  return Boolean(authSession.accessToken && userId && blockedUserIds().has(String(userId)));
+}
+
+function listingIsFromBlockedAuthor(listing = {}) {
+  return Boolean(listing?.authorId && isUserBlocked(listing.authorId));
+}
+
+function visibleListingsForUser(items = []) {
+  return items.filter((item) => !listingIsFromBlockedAuthor(item));
+}
+
+function blockEntryFromListing(listing = {}) {
+  if (!listing.authorId) return null;
+  return {
+    blockedId: listing.authorId,
+    blocked: {
+      id: listing.authorId,
+      role: "USER",
+      status: "ACTIVE",
+      profile: {
+        displayName: listing.author || "Автор",
+        username: listing.authorUsername || "",
+        avatarUrl: listing.authorAvatarUrl || ""
+      }
+    }
+  };
+}
+
+function blockEntryFromProfile(profile = {}) {
+  const userId = profile.user?.id;
+  if (!userId) return null;
+  return {
+    blockedId: userId,
+    blocked: {
+      id: userId,
+      role: profile.user?.role || "USER",
+      status: profile.user?.status || "ACTIVE",
+      profile: {
+        displayName: profile.displayName || profile.username || "Автор",
+        username: profile.username || "",
+        avatarUrl: profile.avatarUrl || ""
+      }
+    }
+  };
+}
+
+function rememberBlockedUser(entry) {
+  if (!entry) return;
+  const normalized = normalizeBlock(entry);
+  const id = blockedUserId(normalized);
+  if (!id) return;
+  if (!blocksCache.some((block) => String(blockedUserId(block)) === String(id))) {
+    blocksCache = [normalized, ...blocksCache];
+  }
+  blocksLoaded = true;
+  recentListings = recentListings.filter((listing) => String(listing.authorId || "") !== String(id));
+  persistRecentListings();
+  renderBlocks(blocksCache);
+}
+
+function ensureListingBlockNotice() {
+  const form = document.querySelector("#listing-response-form");
+  let notice = document.querySelector("#listing-block-notice");
+  if (!notice && form) {
+    notice = document.createElement("div");
+    notice.id = "listing-block-notice";
+    notice.className = "notice block-notice is-hidden";
+    notice.setAttribute("role", "status");
+    form.before(notice);
+  }
+  return notice;
+}
+
+function updateListingBlockedState() {
+  const authorId = selectedListing?.authorId;
+  const blocked = isUserBlocked(authorId);
+  const ownListing = Boolean(authorId && authSession.user?.id && String(authorId) === String(authSession.user.id));
+  const detail = document.querySelector("#view-listing .listing-detail");
+  const blockButton = document.querySelector("#block-author");
+  const likeButton = document.querySelector("#like-listing");
+  const notice = ensureListingBlockNotice();
+
+  if (detail) detail.classList.toggle("is-author-blocked", blocked);
+  if (notice) {
+    notice.classList.toggle("is-hidden", !blocked);
+    notice.innerHTML = blocked
+      ? `<strong>Автор заблокирован</strong><span>Его заявки скрыты из вашей ленты, отклики и личные сообщения с ним недоступны. Управлять блокировками можно в личном кабинете.</span>`
+      : "";
+  }
+  if (blockButton) {
+    blockButton.disabled = Boolean(!authorId || ownListing || blocked);
+    blockButton.classList.toggle("is-active", blocked);
+    blockButton.textContent = ownListing
+      ? "Это ваша заявка"
+      : blocked
+        ? "Автор заблокирован"
+        : "Заблокировать автора";
+    blockButton.title = blocked
+      ? "Автор уже находится в блок-листе"
+      : ownListing
+        ? "Себя блокировать не нужно"
+        : "Скрыть автора из ленты и запретить взаимодействия";
+  }
+  if (likeButton) {
+    likeButton.disabled = blocked;
+    likeButton.title = blocked ? "Лайк недоступен для заблокированного автора" : "";
+  }
+  [
+    "#listing-detail-body",
+    "#listing-detail-stats",
+    "#listing-detail-expectations",
+    "#listing-detail-tags",
+    "#listing-related-tag",
+    "#listing-related-world",
+    "#listing-related-list"
+  ].forEach((selector) => {
+    document.querySelector(selector)?.classList.toggle("is-hidden", blocked);
+  });
+}
+
+function ensureProfileBlockNotice() {
+  const cover = document.querySelector("#public-profile-cover");
+  let notice = document.querySelector("#public-profile-block-notice");
+  if (!notice && cover) {
+    notice = document.createElement("div");
+    notice.id = "public-profile-block-notice";
+    notice.className = "notice block-notice profile-block-notice is-hidden";
+    notice.setAttribute("role", "status");
+    const actions = cover.querySelector(".button-row");
+    cover.insertBefore(notice, actions || null);
+  }
+  return notice;
+}
+
+function updatePublicProfileBlockedState() {
+  const userId = currentPublicProfile?.user?.id;
+  const blocked = isUserBlocked(userId);
+  const ownProfile = Boolean(userId && authSession.user?.id && String(userId) === String(authSession.user.id));
+  const canMessage = currentPublicProfile?.user?.canMessage !== false && currentPublicProfile?.privacy?.allowProfileMessages !== false;
+  const cover = document.querySelector("#public-profile-cover");
+  const blockButton = document.querySelector("#block-profile-author");
+  const messageButton = document.querySelector("#message-profile-author");
+  const notice = ensureProfileBlockNotice();
+
+  if (cover) cover.classList.toggle("is-author-blocked", blocked);
+  if (notice) {
+    notice.classList.toggle("is-hidden", !blocked);
+    notice.innerHTML = blocked
+      ? `<strong>Автор заблокирован</strong><span>Профиль доступен для просмотра, но заявки и личные сообщения скрыты до разблокировки.</span>`
+      : "";
+  }
+  if (messageButton) {
+    messageButton.disabled = Boolean(ownProfile || blocked || !canMessage);
+    messageButton.textContent = ownProfile
+      ? "Это ваш профиль"
+      : blocked
+        ? "Автор заблокирован"
+        : canMessage ? "Написать" : "ЛС закрыты";
+    messageButton.title = blocked
+      ? "Разблокируйте автора в личном кабинете, чтобы написать"
+      : canMessage ? "Открыть личный диалог" : "Автор отключил новые личные сообщения из профиля";
+  }
+  if (blockButton) {
+    blockButton.disabled = Boolean(!userId || ownProfile || blocked);
+    blockButton.classList.toggle("is-active", blocked);
+    blockButton.textContent = ownProfile
+      ? "Это ваш профиль"
+      : blocked
+        ? "Автор заблокирован"
+        : "Заблокировать автора";
+  }
+}
+
+function syncBlockedAuthorUi() {
+  updateListingBlockedState();
+  updatePublicProfileBlockedState();
+  renderRecentListings();
+  renderHomeListings();
+  if (selectedListing) renderRelatedListings(selectedListing);
+  renderListings();
+  renderLikedListings(likedListingsCache);
+  renderPublicProfileListings();
 }
 
 function setDrawingPreview(dataUrl) {
@@ -2622,7 +2940,7 @@ function relatedListingCard(listing) {
     .join("");
   return `
     <article data-open-related-listing="${escapeHtml(listing.id)}" tabindex="0">
-      <strong><a href="${escapeHtml(listingHref(listing.id))}" data-open-related-listing="${escapeHtml(listing.id)}">${escapeHtml(listing.title)}</a></strong>
+      <strong><a href="${escapeHtml(listingHref(listing))}" data-open-related-listing="${escapeHtml(listing.id)}">${escapeHtml(listing.title)}</a></strong>
       <p>${escapeHtml(clipText(stripRichText(listing.body), 96))}</p>
       <div class="tags">${tags}</div>
     </article>
@@ -2632,7 +2950,8 @@ function relatedListingCard(listing) {
 function renderRelatedListings(listing) {
   const box = document.querySelector("#listing-related-list");
   if (!box) return;
-  const related = listings
+  const related = visibleListingsForUser(listings)
+    .filter((candidate) => String(candidate.id) !== String(listing.id))
     .map((candidate) => ({ listing: candidate, score: listingSimilarityScore(listing, candidate) }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score || (b.listing.likes || 0) - (a.listing.likes || 0))
@@ -2653,7 +2972,8 @@ function updateListingResponseState() {
   const length = richPlainLength(value);
   const storedOk = richWithinStoredLimit(value);
   const listingOpen = Boolean(selectedListing?.open);
-  const canWrite = Boolean(authSession.accessToken && listingOpen && !input?.disabled);
+  const listingBlocked = isUserBlocked(selectedListing?.authorId);
+  const canWrite = Boolean(authSession.accessToken && listingOpen && !listingBlocked && !input?.disabled);
   const textOk = length >= 10 && length <= 4000 && storedOk;
   if (counter) {
     counter.textContent = `${length} / 4000`;
@@ -2662,8 +2982,10 @@ function updateListingResponseState() {
   if (submit) submit.disabled = !(canWrite && textOk);
   if (templateButton) templateButton.disabled = !canWrite;
   if (note) {
-    note.textContent = !listingOpen
-      ? "Заявка закрыта, автор может не принять новый отклик."
+    note.textContent = listingBlocked
+      ? "Вы заблокировали автора. Чтобы отправить отклик, сначала снимите блокировку в личном кабинете."
+      : !listingOpen
+        ? "Заявка закрыта, автор может не принять новый отклик."
       : !authSession.accessToken
         ? "Войдите, чтобы написать и отправить отклик."
       : !storedOk
@@ -2680,22 +3002,27 @@ function updateListingResponseAccessState() {
   const status = document.querySelector("#listing-response-status");
   const templateButton = document.querySelector("#fill-response-template");
   const listingOpen = Boolean(selectedListing?.open);
-  const canWrite = Boolean(authSession.accessToken && listingOpen);
+  const listingBlocked = isUserBlocked(selectedListing?.authorId);
+  const canWrite = Boolean(authSession.accessToken && listingOpen && !listingBlocked);
 
   if (status) {
-    status.textContent = !authSession.accessToken
-      ? "Войдите, чтобы отправить отклик автору."
+    status.textContent = listingBlocked
+      ? "Автор заблокирован: отклик отправить нельзя."
+      : !authSession.accessToken
+        ? "Войдите, чтобы отправить отклик автору."
       : listingOpen
         ? "Отклик увидит автор, а после принятия появится личный диалог."
         : "Заявка закрыта: новый отклик отправить нельзя.";
   }
   if (input) {
     input.disabled = !canWrite;
-    input.placeholder = listingOpen
-      ? authSession.accessToken
-        ? "Расскажите, почему вам подходит эта заявка, какой темп и формат вам удобны."
-        : "Войдите, чтобы написать отклик."
-      : "Заявка закрыта для новых откликов.";
+    input.placeholder = listingBlocked
+      ? "Вы заблокировали автора. Разблокируйте его в личном кабинете, чтобы написать отклик."
+      : listingOpen
+        ? authSession.accessToken
+          ? "Расскажите, почему вам подходит эта заявка, какой темп и формат вам удобны."
+          : "Войдите, чтобы написать отклик."
+        : "Заявка закрыта для новых откликов.";
     updateRichEditorDisabled("listing-response-message");
   }
   if (templateButton) templateButton.disabled = !canWrite;
@@ -2878,25 +3205,35 @@ function renderListingDetail(listing) {
     worldLink.href = params.toString() ? `/feed?${params.toString()}` : "/feed";
   }
   updateListingResponseState();
+  updateListingBlockedState();
   renderRelatedListings(listing);
   if (currentViewName() === "listing") updateSeo("listing");
 }
 
-async function openListing(id) {
-  const localListing = listings.find((listing) => String(listing.id) === String(id));
+async function openListing(idOrSlug) {
+  if (authSession.accessToken && !blocksLoaded) await loadBlocks();
+  const localListing = listings.find((listing) => String(listing.id) === String(idOrSlug) || String(listing.slug) === String(idOrSlug));
   if (localListing) {
     renderListingDetail(localListing);
     rememberRecentListing(localListing);
   }
-  setView("listing", { url: id ? `/listing/${encodeURIComponent(id)}` : "/listing" });
-  if (!apiOnline || !id) return;
+  const initialUrl = localListing
+    ? listingHref(localListing)
+    : (idOrSlug ? (isLikelyListingId(idOrSlug) ? `/listing/${encodeURIComponent(idOrSlug)}` : `/listings/${encodeURIComponent(idOrSlug)}`) : "/listing");
+  setView("listing", { url: initialUrl });
+  if (!apiOnline || !idOrSlug) return;
   try {
-    const remote = normalizeListing(await apiFetch(`/listings/${id}`));
-    const index = listings.findIndex((listing) => String(listing.id) === String(id));
+    const remote = normalizeListing(await apiFetch(`/listings/${encodeURIComponent(idOrSlug)}`));
+    const index = listings.findIndex((listing) => String(listing.id) === String(remote.id));
     if (index >= 0) listings[index] = { ...listings[index], ...remote };
     const listing = index >= 0 ? listings[index] : remote;
     renderListingDetail(listing);
     rememberRecentListing(listing);
+    const canonicalUrl = listingHref(listing);
+    if (currentViewName() === "listing" && canonicalUrl !== `${location.pathname}`) {
+      history.replaceState(history.state, "", canonicalUrl);
+      updateSeo("listing");
+    }
   } catch {
     showToast("Не удалось обновить заявку из API, показываю данные из ленты");
   }
@@ -2951,6 +3288,7 @@ function renderPublicProfile(profile) {
     reportButton.disabled = Boolean(ownProfile);
     reportButton.textContent = ownProfile ? "Это ваш профиль" : "Пожаловаться";
   }
+  updatePublicProfileBlockedState();
   document.querySelector("#public-profile-tags").innerHTML = tags.length
     ? tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")
     : `<span>профиль без тегов</span>`;
@@ -2994,9 +3332,15 @@ function renderPublicProfileListings() {
   const countNote = document.querySelector("#public-profile-listings-count");
   const pagination = document.querySelector("#public-profile-listings-pagination");
   if (!box) return;
+  if (isUserBlocked(currentPublicProfile?.user?.id)) {
+    if (countNote) countNote.textContent = "Автор заблокирован: его заявки скрыты из вашего просмотра.";
+    box.innerHTML = `<article class="listing-card"><h2>Автор заблокирован</h2><p>Заявки этого автора скрыты. Управлять блокировками можно в личном кабинете.</p></article>`;
+    if (pagination) pagination.innerHTML = "";
+    return;
+  }
   const search = document.querySelector("#public-profile-listing-search")?.value.trim().toLowerCase() || "";
   const sort = document.querySelector("#public-profile-listing-sort")?.value || "new";
-  const filtered = currentPublicProfileListings
+  const filtered = visibleListingsForUser(currentPublicProfileListings)
     .filter((listing) => {
       const haystack = [
         listing.title,
@@ -3300,8 +3644,10 @@ function renderLikedListings(items = []) {
   if (!box) return;
   const search = document.querySelector("#liked-listings-search")?.value.trim().toLowerCase() || "";
   const sort = document.querySelector("#liked-listings-sort")?.value || "new";
-  const visibleItems = items
+  const normalizedItems = items
     .map((item) => normalizeListing(item))
+    .filter((listing) => !listingIsFromBlockedAuthor(listing));
+  const visibleItems = normalizedItems
     .filter((listing) => {
       const haystack = [
         listing.title,
@@ -3325,8 +3671,8 @@ function renderLikedListings(items = []) {
     });
   if (countNote) {
     countNote.textContent = search
-      ? `Найдено ${visibleItems.length} из ${items.length} ${plural(items.length, ["заявки", "заявок", "заявок"])}.`
-      : `${items.length} ${plural(items.length, ["понравившаяся заявка", "понравившиеся заявки", "понравившихся заявок"])}.`;
+      ? `Найдено ${visibleItems.length} из ${normalizedItems.length} ${plural(normalizedItems.length, ["заявки", "заявок", "заявок"])}.`
+      : `${normalizedItems.length} ${plural(normalizedItems.length, ["понравившаяся заявка", "понравившиеся заявки", "понравившихся заявок"])}.`;
   }
   box.innerHTML = visibleItems.length
     ? visibleItems.map((item) => listingCard(item)).join("")
@@ -3395,17 +3741,21 @@ function renderNotifications(notifications = []) {
 }
 
 function renderBlocks(blocks = []) {
-  blocksCache = blocks;
+  blocksCache = (Array.isArray(blocks) ? blocks : []).map(normalizeBlock).filter((block) => blockedUserId(block));
+  blocksLoaded = Boolean(authSession.accessToken);
   const box = document.querySelector("#block-list");
   const countNote = document.querySelector("#block-list-count");
-  if (!box) return;
+  if (!box) {
+    syncBlockedAuthorUi();
+    return;
+  }
   const search = document.querySelector("#block-list-search")?.value.trim().toLowerCase() || "";
-  const visibleBlocks = blocks.filter((block) => {
+  const visibleBlocks = blocksCache.filter((block) => {
     const profile = block.blocked?.profile || {};
     const haystack = [
       profile.displayName,
       profile.username,
-      block.blockedId,
+      blockedUserId(block),
       block.blocked?.role,
       block.blocked?.status
     ].filter(Boolean).join(" ").toLowerCase();
@@ -3413,24 +3763,26 @@ function renderBlocks(blocks = []) {
   });
   if (countNote) {
     countNote.textContent = search
-      ? `Найдено ${visibleBlocks.length} из ${blocks.length} ${plural(blocks.length, ["блокировки", "блокировок", "блокировок"])}.`
-      : `${blocks.length} ${plural(blocks.length, ["заблокированный автор", "заблокированных автора", "заблокированных авторов"])}.`;
+      ? `Найдено ${visibleBlocks.length} из ${blocksCache.length} ${plural(blocksCache.length, ["блокировки", "блокировок", "блокировок"])}.`
+      : `${blocksCache.length} ${plural(blocksCache.length, ["заблокированный автор", "заблокированных автора", "заблокированных авторов"])}.`;
   }
   box.innerHTML = visibleBlocks.length
     ? visibleBlocks.map((block) => {
         const profile = block.blocked?.profile || {};
-        const name = profile.displayName || profile.username || block.blockedId;
+        const id = blockedUserId(block);
+        const name = profile.displayName || profile.username || id;
         return `
-          <article data-blocked-user="${escapeHtml(block.blockedId)}">
+          <article data-blocked-user="${escapeHtml(id)}">
             <div>
               <strong>${escapeHtml(name)}</strong>
               <p>${escapeHtml(block.blocked?.role || "USER")} · ${escapeHtml(block.blocked?.status || "ACTIVE")}</p>
             </div>
-            <button type="button" data-unblock-user="${escapeHtml(block.blockedId)}">Разблокировать</button>
+            <button type="button" data-unblock-user="${escapeHtml(id)}">Разблокировать</button>
           </article>
         `;
       }).join("")
     : `<article><div><strong>${search ? "Ничего не найдено" : "Список пуст"}</strong><p>${search ? "Попробуйте другой запрос по блок-листу." : "Заблокированные авторы появятся здесь."}</p></div></article>`;
+  syncBlockedAuthorUi();
 }
 
 function renderMySuggestions(items = []) {
@@ -4409,6 +4761,7 @@ function goToFeedPage(page, updateUrl = true) {
 }
 
 async function refreshFeedFromApi() {
+  if (authSession.accessToken && !blocksLoaded) await loadBlocks();
   if (!apiOnline) {
     renderListings();
     return;
@@ -5665,6 +6018,14 @@ async function hydrateFromApi() {
   }
 }
 
+function isCurrentLoadedUser(me) {
+  if (!authSession.accessToken) return false;
+  const current = authSession.user || {};
+  if (current.id && me?.id) return String(current.id) === String(me.id);
+  if (current.email && me?.email) return String(current.email).toLowerCase() === String(me.email).toLowerCase();
+  return true;
+}
+
 async function loadMe() {
   const accessTokenAtStart = authSession.accessToken;
   if (!accessTokenAtStart) return;
@@ -5675,15 +6036,17 @@ async function loadMe() {
     if (authSession.accessToken === accessTokenAtStart) clearSession();
     return;
   }
-  if (authSession.accessToken !== accessTokenAtStart) return;
+  if (!isCurrentLoadedUser(me)) return;
   authSession.user = { id: me.id, email: me.email, role: me.role, status: me.status, profile: me.profile, isPremium: me.isPremium };
   localStorage.setItem("cofindUser", JSON.stringify(authSession.user));
   updateAuthUi();
   renderSubscriptionStatus(me.subscription, authSession.user);
   renderAds();
 
+  const blocksPromise = loadBlocks({ force: true });
   const hasMeDashboard = Boolean(document.querySelector("#me-display-name"));
   if (!hasMeDashboard) {
+    await blocksPromise;
     loadAdminDashboard();
     return;
   }
@@ -5696,9 +6059,9 @@ async function loadMe() {
       apiFetch("/listings/mine/responses").catch(() => []),
       apiFetch("/listings/mine/incoming-responses").catch(() => []),
       apiFetch("/notifications").catch(() => []),
-      apiFetch("/me/blocks").catch(() => [])
+      blocksPromise
     ]);
-    if (authSession.accessToken !== accessTokenAtStart) return;
+    if (!isCurrentLoadedUser(me)) return;
     renderMeDashboard({ me, publicProfile, myListings, likedListings, sentResponses, incomingResponses, notifications, blocks });
     loadAdminDashboard();
   } catch {
@@ -5869,6 +6232,11 @@ document.querySelector("#listing-list")?.addEventListener("click", async (event)
   if (likeButton) {
     const remoteItem = listings.find((listing) => String(listing.id) === String(likeButton.dataset.likeFeed));
     if (!remoteItem || !requireAuthForAction("Чтобы поставить лайк заявке, войдите в аккаунт")) return;
+    if (listingIsFromBlockedAuthor(remoteItem)) {
+      showToast("Заявка принадлежит заблокированному автору.");
+      renderListings();
+      return;
+    }
     if (pendingListingLikes.has(remoteItem.id)) return;
     pendingListingLikes.add(remoteItem.id);
     likeButton.disabled = true;
@@ -6744,6 +7112,13 @@ document.querySelector("#listing-response-form")?.addEventListener("submit", asy
     openAuthForCurrentView("Чтобы отправить отклик, войдите в аккаунт", "listing");
     return;
   }
+  if (isUserBlocked(selectedListing.authorId)) {
+    showToast("Автор заблокирован. Разблокируйте его в личном кабинете, чтобы отправить отклик.");
+    updateListingResponseAccessState();
+    updateListingResponseState();
+    updateListingBlockedState();
+    return;
+  }
   const input = document.querySelector("#listing-response-message");
   const message = input.value.trim();
   const messagePlainLength = richPlainLength(message);
@@ -6774,6 +7149,11 @@ document.querySelector("#listing-response-form")?.addEventListener("submit", asy
 
 document.querySelector("#fill-response-template")?.addEventListener("click", () => {
   if (!requireAuthForAction("Войдите, чтобы написать отклик")) return;
+  if (isUserBlocked(selectedListing?.authorId)) {
+    showToast("Автор заблокирован. Шаблон отклика недоступен до разблокировки.");
+    updateListingBlockedState();
+    return;
+  }
   const input = document.querySelector("#listing-response-message");
   if (!input || input.disabled) return;
   const title = selectedListing?.title || "ваша заявка";
@@ -6834,7 +7214,7 @@ document.querySelector("#copy-listing-link")?.addEventListener("click", () => {
     showToast("Сначала откройте заявку");
     return;
   }
-  copyToClipboard(`${location.origin}/listing/${encodeURIComponent(selectedListing.id)}`, "Ссылка на заявку скопирована");
+  copyToClipboard(`${location.origin}${listingHref(selectedListing)}`, "Ссылка на заявку скопирована");
 });
 
 document.querySelector("#copy-profile-link")?.addEventListener("click", () => {
@@ -6857,6 +7237,11 @@ document.querySelector("#message-profile-author")?.addEventListener("click", asy
   }
   if (currentPublicProfile.user.id === authSession.user?.id) {
     showToast("Это ваш профиль");
+    return;
+  }
+  if (isUserBlocked(currentPublicProfile.user.id)) {
+    showToast("Автор заблокирован. Разблокируйте его в личном кабинете, чтобы написать.");
+    updatePublicProfileBlockedState();
     return;
   }
   try {
@@ -6886,14 +7271,26 @@ document.querySelector("#block-author")?.addEventListener("click", async () => {
     showToast("Себя блокировать не нужно");
     return;
   }
+  if (isUserBlocked(selectedListing.authorId)) {
+    updateListingBlockedState();
+    showToast("Автор уже находится в блок-листе");
+    return;
+  }
+  const button = document.querySelector("#block-author");
+  if (button) button.disabled = true;
   try {
     await apiFetch("/me/blocks", {
       method: "POST",
       body: JSON.stringify({ userId: selectedListing.authorId })
     });
-    showToast("Автор добавлен в блок-лист");
+    rememberBlockedUser(blockEntryFromListing(selectedListing));
+    updateListingResponseAccessState();
+    updateListingResponseState();
+    updateListingBlockedState();
+    showToast("Автор заблокирован. Его заявки скрыты из ленты.");
   } catch (error) {
     showToast(apiFailure("Не удалось заблокировать автора", error));
+    updateListingBlockedState();
   }
 });
 
@@ -6910,15 +7307,25 @@ document.querySelector("#block-profile-author")?.addEventListener("click", async
     showToast("Себя блокировать не нужно");
     return;
   }
+  if (isUserBlocked(currentPublicProfile.user.id)) {
+    updatePublicProfileBlockedState();
+    showToast("Автор уже находится в блок-листе");
+    return;
+  }
+  const button = document.querySelector("#block-profile-author");
+  if (button) button.disabled = true;
   try {
     await apiFetch("/me/blocks", {
       method: "POST",
       body: JSON.stringify({ userId: currentPublicProfile.user.id })
     });
-    showToast("Автор добавлен в блок-лист");
+    rememberBlockedUser(blockEntryFromProfile(currentPublicProfile));
+    updatePublicProfileBlockedState();
+    showToast("Автор заблокирован. Его заявки скрыты из ленты.");
     await loadMe();
   } catch (error) {
     showToast(apiFailure("Не удалось заблокировать автора", error));
+    updatePublicProfileBlockedState();
   }
 });
 
@@ -6946,6 +7353,11 @@ document.querySelector("#report-profile-author")?.addEventListener("click", () =
 document.querySelector("#like-listing")?.addEventListener("click", async (event) => {
   if (!selectedListing) return;
   if (!requireAuthForAction("Чтобы поставить лайк заявке, войдите в аккаунт")) return;
+  if (listingIsFromBlockedAuthor(selectedListing)) {
+    showToast("Заявка принадлежит заблокированному автору.");
+    updateListingBlockedState();
+    return;
+  }
   if (pendingListingLikes.has(selectedListing.id)) return;
   pendingListingLikes.add(selectedListing.id);
   event.currentTarget.disabled = true;
@@ -7658,8 +8070,12 @@ document.querySelector("#block-list")?.addEventListener("click", async (event) =
   const button = event.target.closest("[data-unblock-user]");
   if (!button) return;
   try {
-    await apiFetch(`/me/blocks/${button.dataset.unblockUser}`, { method: "DELETE" });
+    const unblockedUserId = button.dataset.unblockUser;
+    await apiFetch(`/me/blocks/${unblockedUserId}`, { method: "DELETE" });
+    blocksCache = blocksCache.filter((block) => String(blockedUserId(block)) !== String(unblockedUserId));
+    renderBlocks(blocksCache);
     showToast("Пользователь разблокирован");
+    await loadBlocks({ force: true });
     loadMe();
   } catch {
     showToast("Не удалось разблокировать пользователя");
@@ -8337,11 +8753,13 @@ renderMessages();
 updateChatComposerState();
 updateAllRichPreviews();
 wireChatRooms();
+reconcileBootAuthState();
 updateAuthUi();
 bootstrapAuthFromCookie().catch(() => {});
 setApiStatus(false, "Проверяем доступность сервиса");
 setWsStatus(false);
 hydrateFromApi();
+loadBlocks();
 loadMe();
 loadPreferences();
 loadMySuggestions();

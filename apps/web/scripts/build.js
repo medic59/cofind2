@@ -8,7 +8,7 @@ const dist = resolve(root, "dist");
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-for (const file of ["index.html", "styles.css", "app.js", "auth-boot.js", "route-guard.js", "favicon.svg", "robots.txt", "sitemap.xml", "_redirects"]) {
+for (const file of ["index.html", "styles.css", "app.js", "auth-boot.js", "auth-state.js", "route-guard.js", "favicon.svg", "robots.txt", "sitemap.xml", "_redirects"]) {
   const source = resolve(root, file);
   try {
     await stat(source);
