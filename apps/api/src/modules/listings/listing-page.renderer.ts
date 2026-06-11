@@ -267,3 +267,80 @@ export function renderListingNotFound(webUrl: string, slug: string) {
     body
   });
 }
+
+// --- Feed first-page server render (SSI fragment for /feed) ---
+
+function statusLabel(listing: any) {
+  return listing?.status === "CLOSED" ? "Закрыта" : "Открыта";
+}
+
+function updatedAgo(listing: any) {
+  const value = listing?.publishedAt || listing?.updatedAt || listing?.createdAt;
+  if (!value) return "недавно";
+  const diff = Date.now() - new Date(value).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "только что";
+  if (mins < 60) return `${mins} ${pluralRu(mins, ["минуту", "минуты", "минут"])} назад`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} ${pluralRu(hours, ["час", "часа", "часов"])} назад`;
+  const days = Math.floor(hours / 24);
+  return `${days} ${pluralRu(days, ["день", "дня", "дней"])} назад`;
+}
+
+function feedTaxonomy(label: string, items: string[]) {
+  const list = [...new Set(items)].slice(0, 4);
+  if (!list.length) return "";
+  return `<div class="listing-card-taxonomy"><span>${escapeHtml(label)}</span><div class="tags">${list
+    .map((item) => `<span>${escapeHtml(item)}</span>`)
+    .join("")}</div></div>`;
+}
+
+export function renderFeedCard(listing: any) {
+  const profile = listing.author?.profile || {};
+  const authorName = profile.displayName || profile.username || "Автор";
+  const username = profile.username || "";
+  const slug = listing.slug || listing.id;
+  const href = `/listings/${encodeURIComponent(slug)}`;
+  const isOpen = listing.status !== "CLOSED";
+  const responses = Number(listing.responses ?? listing._count?.responses ?? 0);
+  const likes = Number(listing.likes ?? 0);
+  const summary = clip(stripRichText(listing.body), 260);
+  const genres = relationNames(listing.genres, "genre");
+  const fandoms = relationNames(listing.fandoms, "fandom");
+  const characters = relationNames(listing.characters, "character");
+  const authorHtml = username
+    ? `<a href="/profile/${encodeURIComponent(username)}" data-open-profile="${escapeHtml(username)}">${escapeHtml(authorName)}</a>`
+    : escapeHtml(authorName);
+  return `<article class="listing-card feed-listing-card" data-listing-id="${escapeHtml(listing.id)}">
+      <div class="card-topline">
+        <div>
+          <span class="pill ${listing.ageRating === "ADULT" ? "warm" : "soft"}">${escapeHtml(typeLabel(listing.type))}</span>
+          <span class="pill">${escapeHtml(ratingLabel(listing.ageRating))}</span>
+          <span class="pill ${isOpen ? "soft" : "warm"}">${escapeHtml(statusLabel(listing))}</span>
+        </div>
+        <span>Обновлено ${escapeHtml(updatedAgo(listing))}</span>
+      </div>
+      <h2><a href="${escapeHtml(href)}" data-open-listing="${escapeHtml(listing.id)}">${escapeHtml(listing.title)}</a></h2>
+      <p>${escapeHtml(summary)}</p>
+      <div class="listing-card-meta">
+        <span>Автор: ${authorHtml}</span>
+        <span>${escapeHtml(responses)} ${escapeHtml(pluralRu(responses, ["отклик", "отклика", "откликов"]))}</span>
+      </div>
+      ${feedTaxonomy("Жанры", genres)}
+      ${feedTaxonomy("Фандомы", fandoms)}
+      ${feedTaxonomy("Персонажи", characters)}
+      <footer>
+        <span>${escapeHtml(likes)} ${escapeHtml(pluralRu(likes, ["лайк", "лайка", "лайков"]))}</span>
+        <div class="button-row listing-card-actions">
+          <a class="secondary-button" href="${escapeHtml(href)}" data-open-listing="${escapeHtml(listing.id)}">${isOpen ? "Откликнуться" : "Подробнее"}</a>
+        </div>
+      </footer>
+    </article>`;
+}
+
+export function renderFeedCards(listings: any[]) {
+  if (!Array.isArray(listings) || !listings.length) {
+    return `<article class="listing-card feed-empty-state"><h2>Заявок пока нет.</h2><p>Создайте первую заявку и помогите запустить сообщество.</p><div class="button-row"><a class="secondary-button" href="/me/listings/new" data-view-link="new-listing">Создать заявку</a></div></article>`;
+  }
+  return listings.map((listing) => renderFeedCard(listing)).join("\n");
+}

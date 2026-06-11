@@ -6,7 +6,7 @@ import { CurrentUser, RequestUser } from "../auth/current-user.decorator";
 import { Public } from "../auth/public.decorator";
 import { CreateListingDto, ListListingsQueryDto, RespondListingDto, UpdateListingDto, UpdateResponseStatusDto } from "./dto";
 import { serializeListingResult, toPublicListing } from "../../common/public-view";
-import { renderListingNotFound, renderListingPage } from "./listing-page.renderer";
+import { renderFeedCards, renderListingNotFound, renderListingPage } from "./listing-page.renderer";
 import { ListingsService } from "./listings.service";
 
 function publicWebUrl() {
@@ -26,6 +26,17 @@ export class ListingsController {
   @Get()
   async list(@Query() query: ListListingsQueryDto, @CurrentUser() user?: RequestUser) {
     return serializeListingResult(await this.listings.list(query, user?.id));
+  }
+
+  // HTML fragment of the feed's first page, injected into /feed via nginx SSI so
+  // the listing cards are server-rendered; the SPA hydrates filters/paging on top.
+  @Public()
+  @ApiExcludeEndpoint()
+  @Get("feed-cards")
+  async feedCards(@Res() res: any) {
+    const result: any = await this.listings.list({});
+    const items = Array.isArray(result) ? result : result.items || result.hits || [];
+    res.status(200).type("html").send(renderFeedCards(items));
   }
 
   @ApiBearerAuth()

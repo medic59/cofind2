@@ -211,6 +211,9 @@ let feedPage = 1;
 const feedPageSize = 20;
 let feedServerPagination = null;
 let feedTotalPages = 1;
+// True once the feed has real API data. Until then we keep the server-rendered
+// (SSI) first-page cards instead of clobbering them with offline/mock content.
+let feedApiLoaded = false;
 let quotedMessage = null;
 let eraserMode = false;
 let drawingData = null;
@@ -1596,6 +1599,11 @@ function includesSearchText(values = [], target = "") {
 }
 
 function renderListings() {
+  const listEl = document.querySelector("#listing-list");
+  // Preserve the server-rendered first page until the client has real API data.
+  if (!feedApiLoaded && listEl?.dataset.ssrFeed === "pending" && listEl.childElementCount > 0) {
+    return;
+  }
   const search = normalizeSearchText(document.querySelector("#feed-search")?.value || "");
   const type = document.querySelector("#feed-type")?.value || "all";
   const rating = document.querySelector("#feed-rating")?.value || "all";
@@ -4861,6 +4869,7 @@ async function refreshFeedFromApi() {
     const result = await apiFetch(`/search/listings${query ? `?${query}` : ""}`);
     const envelope = normalizeListingEnvelope(result);
     listings = envelope.items.map(normalizeListing);
+    feedApiLoaded = true;
     feedServerPagination = envelope.pagination;
     if (feedServerPagination) feedPage = feedServerPagination.page || feedPage;
     renderListings();
@@ -6095,6 +6104,7 @@ async function hydrateFromApi() {
   try {
     const feedEnvelope = normalizeListingEnvelope(remoteListings);
     listings = feedEnvelope.items.map(normalizeListing);
+    feedApiLoaded = true;
     feedServerPagination = feedEnvelope.pagination;
     catalogGenres = genres || [];
     catalogFandoms = fandoms || [];

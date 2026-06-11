@@ -193,6 +193,14 @@ function rewriteRouteMeta(html, webUrl, route) {
   if (route.path === "/") {
     page = page.replace("</head>", `    ${homeJsonLd(webUrl)}\n  </head>`);
   }
+  if (route.path === "/feed") {
+    // Server-render the first page of cards via an nginx SSI include. The marker
+    // keeps the client from clobbering them before API data arrives.
+    page = page.replace(
+      /<div class="listing-list" id="listing-list"([^>]*)><\/div>/,
+      `<div class="listing-list" id="listing-list"$1 data-ssr-feed="pending"><!--# include virtual="/_feed_cards" --></div>`
+    );
+  }
   return page;
 }
 
