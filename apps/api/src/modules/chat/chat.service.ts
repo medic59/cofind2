@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { toPublicChatMessage } from "../../common/public-view";
 import { sanitizeRichText } from "../../common/rich-text";
 import { PrismaService } from "../prisma/prisma.service";
 import { deleteUploadedImageByUrl } from "../uploads/upload-storage";
@@ -27,7 +28,8 @@ export class ChatService {
       take: 50,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
     });
-    return this.withLikes(messages, viewerId);
+    const enriched = await this.withLikes(messages, viewerId);
+    return enriched.map(toPublicChatMessage);
   }
 
   async send(senderId: string, dto: SendGlobalMessageDto) {
@@ -72,7 +74,7 @@ export class ChatService {
         drawings: true
       }
     });
-    return { ...message, likes: 0 };
+    return toPublicChatMessage({ ...message, likes: 0 });
   }
 
   async react(userId: string, messageId: string, dto: ReactMessageDto) {

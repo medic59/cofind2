@@ -6,6 +6,7 @@ import { CurrentUser, RequestUser } from "../auth/current-user.decorator";
 import { Public } from "../auth/public.decorator";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
+import { serializeListingResult } from "../../common/public-view";
 import { SearchListingsQueryDto } from "./dto";
 import { SearchService } from "./search.service";
 
@@ -17,8 +18,8 @@ export class SearchController {
 
   @Public()
   @Get("listings")
-  listings(@Query() query: SearchListingsQueryDto, @CurrentUser() user?: RequestUser) {
-    return this.search.listings(query, user?.id);
+  async listings(@Query() query: SearchListingsQueryDto, @CurrentUser() user?: RequestUser) {
+    return serializeListingResult(await this.search.listings(query, user?.id));
   }
 
   @ApiBearerAuth()

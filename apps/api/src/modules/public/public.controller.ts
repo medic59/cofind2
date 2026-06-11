@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import { toPublicAd, toPublicPlan, toPublicSeoPage } from "../../common/public-view";
 import { Public } from "../auth/public.decorator";
 import { PublicAdsQueryDto, SeoPageQueryDto } from "./dto";
 import { PublicService } from "./public.service";
@@ -11,8 +12,8 @@ export class PublicController {
   constructor(private readonly publicService: PublicService) {}
 
   @Get("subscription/plans")
-  plans() {
-    return this.publicService.plans();
+  async plans() {
+    return (await this.publicService.plans()).map(toPublicPlan);
   }
 
   @Get("settings")
@@ -21,12 +22,13 @@ export class PublicController {
   }
 
   @Get("ads/placements")
-  ads(@Query() query: PublicAdsQueryDto) {
-    return this.publicService.ads(query.position);
+  async ads(@Query() query: PublicAdsQueryDto) {
+    return (await this.publicService.ads(query.position)).map(toPublicAd);
   }
 
   @Get("seo/page")
-  seoPage(@Query() query: SeoPageQueryDto) {
-    return this.publicService.seoPage(query.path || "/");
+  async seoPage(@Query() query: SeoPageQueryDto) {
+    const page = await this.publicService.seoPage(query.path || "/");
+    return page ? toPublicSeoPage(page) : null;
   }
 }

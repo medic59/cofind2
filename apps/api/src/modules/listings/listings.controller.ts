@@ -5,6 +5,7 @@ import { AuthGuard } from "../auth/auth.guard";
 import { CurrentUser, RequestUser } from "../auth/current-user.decorator";
 import { Public } from "../auth/public.decorator";
 import { CreateListingDto, ListListingsQueryDto, RespondListingDto, UpdateListingDto, UpdateResponseStatusDto } from "./dto";
+import { serializeListingResult, toPublicListing } from "../../common/public-view";
 import { renderListingNotFound, renderListingPage } from "./listing-page.renderer";
 import { ListingsService } from "./listings.service";
 
@@ -23,8 +24,8 @@ export class ListingsController {
 
   @Public()
   @Get()
-  list(@Query() query: ListListingsQueryDto, @CurrentUser() user?: RequestUser) {
-    return this.listings.list(query, user?.id);
+  async list(@Query() query: ListListingsQueryDto, @CurrentUser() user?: RequestUser) {
+    return serializeListingResult(await this.listings.list(query, user?.id));
   }
 
   @ApiBearerAuth()
@@ -70,8 +71,8 @@ export class ListingsController {
 
   @Public()
   @Get(":slugOrId")
-  get(@Param("slugOrId") slugOrId: string, @CurrentUser() user?: RequestUser) {
-    return this.listings.get(slugOrId, user?.id);
+  async get(@Param("slugOrId") slugOrId: string, @CurrentUser() user?: RequestUser) {
+    return toPublicListing(await this.listings.get(slugOrId, user?.id), { includeMeta: true });
   }
 
   @ApiBearerAuth()

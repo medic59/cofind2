@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import { toPublicProfile } from "../../common/public-view";
 import { Public } from "../auth/public.decorator";
 import { PublicProfileQueryDto } from "./dto";
 import { ProfilesService } from "./profiles.service";
@@ -11,7 +12,7 @@ export class ProfilesController {
   constructor(private readonly profiles: ProfilesService) {}
 
   @Get(":username")
-  publicProfile(@Param("username") username: string, @Query() query: PublicProfileQueryDto) {
-    return this.profiles.publicProfile(username, query);
+  async publicProfile(@Param("username") username: string, @Query() query: PublicProfileQueryDto) {
+    return toPublicProfile(await this.profiles.publicProfile(username, query));
   }
 }

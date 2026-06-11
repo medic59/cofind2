@@ -4,6 +4,7 @@ import { PageQueryDto } from "../../common/page-query.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { CurrentUser, RequestUser } from "../auth/current-user.decorator";
 import { Public } from "../auth/public.decorator";
+import { toPublicCatalogItem } from "../../common/public-view";
 import { CatalogService } from "./catalog.service";
 import { CreateSuggestionDto } from "./dto";
 
@@ -15,26 +16,26 @@ export class CatalogController {
 
   @Public()
   @Get("tags")
-  tags() {
-    return this.catalog.tags();
+  async tags() {
+    return (await this.catalog.tags()).map(toPublicCatalogItem);
   }
 
   @Public()
   @Get("genres")
-  genres() {
-    return this.catalog.genres();
+  async genres() {
+    return (await this.catalog.genres()).map(toPublicCatalogItem);
   }
 
   @Public()
   @Get("fandoms")
-  fandoms() {
-    return this.catalog.fandoms();
+  async fandoms() {
+    return (await this.catalog.fandoms()).map(toPublicCatalogItem);
   }
 
   @Public()
   @Get("characters")
-  characters(@Query("fandom") fandom?: string) {
-    return this.catalog.characters(fandom);
+  async characters(@Query("fandom") fandom?: string) {
+    return (await this.catalog.characters(fandom)).map(toPublicCatalogItem);
   }
 
   @ApiBearerAuth()

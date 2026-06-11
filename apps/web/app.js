@@ -2493,9 +2493,12 @@ function setCoverElement(element, coverUrl = "") {
 
 function normalizeListing(item) {
   const rawTags = item.tags || [];
-  const profile = item.author?.profile || {};
-  const author = profile.displayName || item.authorDisplayName || profile.username || item.authorUsername || item.author || "Автор";
-  const authorUsername = profile.username || item.authorUsername || String(author).toLowerCase().replace(/[^a-zа-яё0-9]+/gi, "");
+  // Public endpoints return a flat author DTO ({id, username, displayName,
+  // avatarUrl, bio}); owner/admin endpoints still return the raw User+profile.
+  const authorObj = item.author && typeof item.author === "object" ? item.author : {};
+  const profile = authorObj.profile || {};
+  const author = authorObj.displayName || profile.displayName || item.authorDisplayName || authorObj.username || profile.username || item.authorUsername || (typeof item.author === "string" ? item.author : "") || "Автор";
+  const authorUsername = authorObj.username || profile.username || item.authorUsername || String(author).toLowerCase().replace(/[^a-zа-яё0-9]+/gi, "");
   const responses = item._count?.responses ?? (Array.isArray(item.responses) ? item.responses.length : item.responses ?? 0);
   const meta = item.meta || {};
   return {
@@ -2503,11 +2506,11 @@ function normalizeListing(item) {
     slug: item.slug,
     type: item.type,
     title: item.title,
-    authorId: item.author?.id || item.authorId,
+    authorId: authorObj.id || item.authorId,
     author,
     authorUsername,
     authorInitials: initialsFrom(author),
-    authorAvatarUrl: profile.avatarUrl || item.authorAvatarUrl || "",
+    authorAvatarUrl: authorObj.avatarUrl || profile.avatarUrl || item.authorAvatarUrl || "",
     authorStyle: profile.writingStyle || meta.writingStyle || "атмосферный",
     authorPace: profile.activityLevel || meta.activityExpectation || "спокойный",
     rating: item.ageRating || item.rating || "EVERYONE",
@@ -3163,7 +3166,6 @@ function renderListingDetail(listing) {
     statsBox.innerHTML = `
       <article><strong>${escapeHtml(listing.likes)}</strong><span>${plural(listing.likes, ["лайк", "лайка", "лайков"])}</span></article>
       <article><strong>${escapeHtml(listing.responses)}</strong><span>${plural(listing.responses, ["отклик", "отклика", "откликов"])}</span></article>
-      <article><strong>${escapeHtml(listing.reports || 0)}</strong><span>${plural(listing.reports || 0, ["жалоба", "жалобы", "жалоб"])}</span></article>
     `;
   }
   if (expectationList) {
@@ -3907,37 +3909,45 @@ async function openProfile(username, options = {}) {
 }
 
 function normalizeMessage(item) {
-  const reactionCounts = {};
+  // Public chat is serialized to { author:{id,username,displayName,avatarUrl},
+  // staff, reactions:{emoji:count}, quote, drawingUrl, ... }. Keep a fallback for
+  // the legacy raw sender/reactions[] shape.
+  const authorObj = item.author && typeof item.author === "object" ? item.author : {};
+  const senderProfile = item.sender?.profile || {};
+  let reactions = {};
   const reactedByMe = {};
-  for (const reaction of item.reactions || []) {
-    reactionCounts[reaction.emoji] = (reactionCounts[reaction.emoji] || 0) + 1;
-    if (reaction.userId && reaction.userId === authSession.user?.id) {
-      reactedByMe[reaction.emoji] = true;
+  if (Array.isArray(item.reactions)) {
+    for (const reaction of item.reactions) {
+      reactions[reaction.emoji] = (reactions[reaction.emoji] || 0) + 1;
+      if (reaction.userId && reaction.userId === authSession.user?.id) reactedByMe[reaction.emoji] = true;
     }
+  } else if (item.reactions && typeof item.reactions === "object") {
+    reactions = { ...item.reactions };
   }
   const rawText = item.text || "";
   const roomMatch = rawText.match(/^\[#([a-z0-9-]+)\]\s*/i);
   const room = item.room || (roomMatch ? roomMatch[1].toLowerCase() : "general");
   const visibleText = roomMatch ? rawText.slice(roomMatch[0].length) : rawText;
-  const rawQuote = item.quotesAsMessage?.[0]?.quotedTextSnapshot || item.quote || "";
+  const rawQuote = item.quote || item.quotesAsMessage?.[0]?.quotedTextSnapshot || "";
   const quoteMatch = rawQuote.match(/^\[#([a-z0-9-]+)\]\s*/i);
+  const senderId = authorObj.id || item.sender?.id || item.senderId || "";
   return {
     id: item.id,
-    senderId: item.sender?.id || item.senderId,
-    author: item.sender?.profile?.displayName || item.sender?.profile?.username || item.author || "Автор",
-    authorUsername: item.sender?.profile?.username || item.authorUsername || "",
-    avatarUrl: item.sender?.profile?.avatarUrl || item.avatarUrl || "",
-    role: item.sender?.role || item.role || "USER",
+    senderId,
+    author: authorObj.displayName || senderProfile.displayName || authorObj.username || senderProfile.username || item.author || "Автор",
+    authorUsername: authorObj.username || senderProfile.username || item.authorUsername || "",
+    avatarUrl: authorObj.avatarUrl || senderProfile.avatarUrl || item.avatarUrl || "",
+    staff: typeof item.staff === "boolean" ? item.staff : ["OWNER", "ADMIN", "MODERATOR"].includes(item.sender?.role || item.role),
     time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : item.time,
     text: visibleText,
     rawText,
     room,
     quote: quoteMatch ? rawQuote.slice(quoteMatch[0].length) : rawQuote,
-    reactions: Object.keys(reactionCounts).length ? reactionCounts : item.reactions || {},
+    reactions,
     reactedByMe: item.reactedByMe || reactedByMe,
     likedByMe: Boolean(item.likedByMe),
     likes: item.likes || 0,
-    drawing: normalizeUploadedImageUrl(item.drawings?.[0]?.imageUrl || item.drawing)
+    drawing: normalizeUploadedImageUrl(item.drawingUrl || item.drawings?.[0]?.imageUrl || item.drawing)
   };
 }
 
@@ -8419,7 +8429,7 @@ function renderMessages({ stickToBottom = true } = {}) {
     ? messages
     : messages.filter((message) => message.room === activeChatRoom);
   const visibleMessages = search
-    ? roomMessages.filter((message) => [message.author, message.authorUsername, message.role, stripRichText(message.text || ""), stripRichText(message.quote || ""), message.room]
+    ? roomMessages.filter((message) => [message.author, message.authorUsername, message.staff ? "команда" : "", stripRichText(message.text || ""), stripRichText(message.quote || ""), message.room]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -8461,7 +8471,7 @@ function renderMessages({ stickToBottom = true } = {}) {
       <article class="message" data-message-id="${escapeHtml(message.id)}">
         <div class="message-head">
           ${avatarMarkup(message.author, message.avatarUrl || "", "small")}
-          <strong>${authorName} <span class="pill soft">${escapeHtml(message.role)}</span></strong>
+          <strong>${authorName}${message.staff ? ` <span class="pill soft">команда</span>` : ""}</strong>
           <span>${escapeHtml(message.time)}</span>
         </div>
         ${quote}
