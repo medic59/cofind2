@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b1d2b"/>
+      <stop offset="0.55" stop-color="#23203a"/>
+      <stop offset="1" stop-color="#2a2140"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7a5cff"/>
+      <stop offset="1" stop-color="#2f7d63"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1040" cy="120" r="320" fill="#7a5cff" opacity="0.10"/>
+  <circle cx="160" cy="560" r="260" fill="#2f7d63" opacity="0.10"/>
+  <g transform="translate(96,150)">
+    <rect width="120" height="120" rx="28" fill="url(#mark)"/>
+    <text x="60" y="82" text-anchor="middle" font-size="58" font-weight="700" fill="#ffffff">C2</text>
+  </g>
+  <text x="240" y="205" font-size="44" font-weight="600" fill="#aeb4c5">Cofind 2</text>
+  <text x="240" y="250" font-size="24" font-weight="400" fill="#8088a0">creative partner finder</text>
+  <text x="96" y="380" font-size="72" font-weight="700" fill="#f5f6fb">Найдите творческого</text>
+  <text x="96" y="462" font-size="72" font-weight="700" fill="#f5f6fb">партнёра</text>
+  <text x="96" y="540" font-size="30" font-weight="400" fill="#aeb4c5">Соавторы · соигроки · бета-ридеры · фандомные команды</text>
+</svg>

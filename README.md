@@ -160,7 +160,10 @@ Helper выставляет обе пары переменных Meilisearch: `M
 - Рекламный `htmlCode` ограничен 4000 символами и на web рендерится через безопасный subset HTML: ссылки/картинки проходят `http(s)`-фильтр, скрипты и inline-обработчики не вставляются в DOM.
 - Web обновляет `<title>`, description, canonical, `og:url` и `og:image` текущего экрана через `/seo/page` с локальным fallback.
 - Для `/listing/:id` и `/profile/:username` web строит динамические title/description/canonical из текущей заявки или профиля, если отдельная SEO-страница не заведена в админке.
-- Web добавляет JSON-LD: `WebSite` для главной, `ItemList` для ленты, `CreativeWork` для заявки и расширенный `Person` для профиля с `sameAs`, интересами и счетчиками взаимодействий.
+- Web добавляет JSON-LD: `Organization` + `WebSite` (с `SearchAction`) для главной, `ItemList` для ленты, `CreativeWork` для заявки и расширенный `Person` для профиля с `sameAs`, интересами и счетчиками взаимодействий. На главной граф `Organization`+`WebSite` зашит в статический HTML (виден краулеру до JS).
+- Каждая статическая страница (`/`, `/feed`, `/help`, `/rules`, `/privacy`, `/contacts`, `/suggestions`, `/chat`) получает на этапе сборки **уникальные** `description`, `og:title`/`og:description` и `twitter:title`/`twitter:description` — без JS. Добавлены `og:type`, `og:site_name`, `twitter:card=summary_large_image` и брендовая картинка `og:image` 1200×630 (`/og-image.png`, генерируется из `og-image.svg`).
+- `sitemap.xml` отдаётся динамически API (`GET /api/v1/sitemap.xml` через nginx-прокси на `/sitemap.xml`): статические маршруты без query-параметров плюс все опубликованные approved-заявки `/listings/<slug>` с `lastmod` из `updatedAt`.
+- Неизвестные маршруты отдают честный HTTP 404 со страницей `404.html` (`noindex`), а не soft-200 с контентом главной; nginx обслуживает index.html только для известных SPA-маршрутов.
 - `index.html` содержит базовые `robots`, canonical и `og:url` еще до выполнения JS; SPA обновляет их при переходах.
 - Web dev-server и `index.html` задают базовую Content Security Policy: скрипты только из `self`, формы в `self`, изображения из `self/data/http(s)`, API/WS-соединения через `http(s)` и `ws(s)`.
 - Web выставляет `robots`: публичные экраны index/follow, личные и служебные экраны noindex/nofollow.

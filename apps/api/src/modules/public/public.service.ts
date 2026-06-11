@@ -39,6 +39,20 @@ export class PublicService {
       where: { path: normalizePath(path) }
     });
   }
+
+  // Published, approved listings from visible authors — for the dynamic sitemap.
+  sitemapListings() {
+    return this.prisma.listing.findMany({
+      where: {
+        status: "PUBLISHED",
+        moderationStatus: "APPROVED",
+        author: { status: { notIn: ["BANNED", "TEMP_BANNED", "DELETED"] } }
+      },
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 5000
+    });
+  }
 }
 
 function normalizePath(value: string) {

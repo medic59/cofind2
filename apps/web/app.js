@@ -337,6 +337,14 @@ const defaultSeo = {
   contacts: {
     title: "Контакты - Cofind 2",
     description: "Связь с поддержкой Cofind 2, модерацией и предложениями каталога."
+  },
+  chat: {
+    title: "Общий чат - Cofind 2",
+    description: "Общий чат Cofind 2: обсуждайте идеи и ищите партнёров по фандому, жанру и темпу в реальном времени."
+  },
+  suggestions: {
+    title: "Предложения - Cofind 2",
+    description: "Предложите новые теги, жанры, фандомы и персонажей в каталог Cofind 2."
   }
 };
 
@@ -779,14 +787,27 @@ function updateStructuredData(name) {
   if (name === "home") {
     setJsonLd("cofind-jsonld", {
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      name: "Cofind 2",
-      url: location.origin,
-      potentialAction: {
-        "@type": "SearchAction",
-        target: `${location.origin}/feed?q={search_term_string}`,
-        "query-input": "required name=search_term_string"
-      }
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": `${location.origin}/#organization`,
+          name: "Cofind 2",
+          url: `${location.origin}/`,
+          logo: `${location.origin}/og-image.png`
+        },
+        {
+          "@type": "WebSite",
+          "@id": `${location.origin}/#website`,
+          name: "Cofind 2",
+          url: `${location.origin}/`,
+          publisher: { "@id": `${location.origin}/#organization` },
+          potentialAction: {
+            "@type": "SearchAction",
+            target: `${location.origin}/feed?q={search_term_string}`,
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
     });
     return;
   }
@@ -875,11 +896,17 @@ async function updateSeo(name) {
   }
   document.title = seo.title || fallback.title;
   const currentUrl = `${location.origin}${location.pathname}${location.search}`;
+  const ogTitle = seo.ogTitle || seo.title || fallback.title;
+  const ogDescription = seo.ogDescription || seo.description || fallback.description;
+  const ogImage = seo.ogImage || `${location.origin}/og-image.png`;
   setMeta("description", seo.description || fallback.description);
-  setMeta("og:title", seo.ogTitle || seo.title || fallback.title, true);
-  setMeta("og:description", seo.ogDescription || seo.description || fallback.description, true);
+  setMeta("og:title", ogTitle, true);
+  setMeta("og:description", ogDescription, true);
   setMeta("og:url", currentUrl, true);
-  setMeta("og:image", seo.ogImage, true);
+  setMeta("og:image", ogImage, true);
+  setMeta("twitter:title", ogTitle);
+  setMeta("twitter:description", ogDescription);
+  setMeta("twitter:image", ogImage);
   setMeta("robots", isIndexableView(name) ? "index,follow" : "noindex,nofollow");
   setLinkRel("canonical", seo.canonical || currentUrl);
   updateStructuredData(name);
