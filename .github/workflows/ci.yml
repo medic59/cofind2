@@ -32,23 +32,29 @@ jobs:
           pnpm --filter @cofind/web test:auth-state
           pnpm run test:unit
 
-      # Create the Sentry release (= commit sha) and upload sourcemaps. Skipped
-      # unless SENTRY_AUTH_TOKEN (+ SENTRY_ORG/PROJECT, and SENTRY_URL for
-      # self-hosted) repository secrets are configured. The release sha matches
-      # the one the deploy job injects into the running services.
+      # Create the Sentry release (= commit sha) and upload sourcemaps for both
+      # projects (Node + Browser). Skipped unless SENTRY_AUTH_TOKEN (+ SENTRY_ORG,
+      # SENTRY_PROJECT_API, SENTRY_PROJECT_WEB; SENTRY_URL for self-hosted) repo
+      # secrets are configured. The release sha matches the one the deploy job
+      # injects into the running services.
       - name: Sentry release & sourcemaps
         if: ${{ github.ref == 'refs/heads/main' && env.SENTRY_AUTH_TOKEN != '' }}
         env:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_PROJECT_API: ${{ secrets.SENTRY_PROJECT_API }}
+          SENTRY_PROJECT_WEB: ${{ secrets.SENTRY_PROJECT_WEB }}
           SENTRY_URL: ${{ secrets.SENTRY_URL }}
           SENTRY_RELEASE: ${{ github.sha }}
         run: |
-          npx @sentry/cli@^2 releases new "$SENTRY_RELEASE"
-          npx @sentry/cli@^2 releases files "$SENTRY_RELEASE" upload-sourcemaps apps/api/dist --rewrite || true
-          npx @sentry/cli@^2 releases files "$SENTRY_RELEASE" upload-sourcemaps apps/web/dist --rewrite || true
-          npx @sentry/cli@^2 releases set-commits "$SENTRY_RELEASE" --auto || true
-          npx @sentry/cli@^2 releases finalize "$SENTRY_RELEASE"
+          # Backend project (Node) — apps/api/dist sourcemaps.
+          npx @sentry/cli@^2 releases new "$SENTRY_RELEASE" --project "$SENTRY_PROJECT_API"
+          npx @sentry/cli@^2 releases files "$SENTRY_RELEASE" upload-sourcemaps apps/api/dist --project "$SENTRY_PROJECT_API" --rewrite || true
+          npx @sentry/cli@^2 releases set-commits "$SENTRY_RELEASE" --auto --project "$SENTRY_PROJECT_API" || true
+          npx @sentry/cli@^2 releases finalize "$SENTRY_RELEASE" --project "$SENTRY_PROJECT_API"
+          # Frontend project (Browser) — apps/web/dist sourcemaps.
+          npx @sentry/cli@^2 releases new "$SENTRY_RELEASE" --project "$SENTRY_PROJECT_WEB"
+          npx @sentry/cli@^2 releases files "$SENTRY_RELEASE" upload-sourcemaps apps/web/dist --project "$SENTRY_PROJECT_WEB" --rewrite || true
+          npx @sentry/cli@^2 releases finalize "$SENTRY_RELEASE" --project "$SENTRY_PROJECT_WEB"
 
   # Bring up the full stack, then run API regression + SEO smoke + Playwright e2e.
   test:

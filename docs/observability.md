@@ -70,14 +70,16 @@ SENTRY_TRACES_SAMPLE_RATE=0        # 0 = только ошибки; 0.1 = 10% т
 
 | Секрет | Назначение |
 |---|---|
-| `SENTRY_AUTH_TOKEN` | токен с правами `project:releases` (включает шаг релиза в CI) |
+| `SENTRY_AUTH_TOKEN` | Organization Auth Token с правами `project:releases` (включает шаг релиза в CI) |
 | `SENTRY_ORG` | слаг организации |
-| `SENTRY_PROJECT` | слаг проекта |
+| `SENTRY_PROJECT_API` | слаг бэкенд-проекта (Node, например `cofind-api`) |
+| `SENTRY_PROJECT_WEB` | слаг фронтенд-проекта (Browser, например `cofind2-web`) |
 | `SENTRY_URL` | только для self-hosted/GlitchTip (URL инстанса) |
 
-Шаг `Sentry release & sourcemaps` в job `build` создаёт релиз = `github.sha`, грузит sourcemaps
-(`apps/api/dist`, `apps/web/dist`) и финализирует его. Job `deploy` пробрасывает тот же `SENTRY_RELEASE`
-в сборку на сервере (build-arg web + env api), поэтому события тегируются тем же релизом, что и карты.
+Шаг `Sentry release & sourcemaps` в job `build` создаёт релиз = `github.sha` в **обоих** проектах,
+грузит sourcemaps (`apps/api/dist` → API-проект, `apps/web/dist` → web-проект) и финализирует.
+Job `deploy` пробрасывает тот же `SENTRY_RELEASE` в сборку на сервере (build-arg web + env api),
+поэтому события тегируются тем же релизом, что и карты.
 
 > Примечание: сборка идёт на сервере, поэтому sourcemaps ассоциируются по релизу+пути (line-based),
 > а не по debug-id. Бэкенд-`dist` собирается с `sourceMap: true`; фронтовый `app.js` не минифицируется,
