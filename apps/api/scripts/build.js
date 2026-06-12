@@ -19,6 +19,22 @@ if (result.status !== 0) {
   process.exit(result.status || 1);
 }
 
+// Generate the Prisma client before typechecking so the model delegates
+// (prisma.listing, prisma.like, …) are typed. The Docker image runs
+// `prisma generate` separately, but `turbo run build` (CI, local) relies on this.
+const generate = spawnSync(process.execPath, [prismaCli, "generate"], {
+  cwd: root,
+  stdio: "inherit"
+});
+
+if (generate.error) {
+  console.error(generate.error);
+}
+
+if (generate.status !== 0) {
+  process.exit(generate.status || 1);
+}
+
 const tsc = spawnSync(process.execPath, [tscCli, "-p", "tsconfig.json"], {
   cwd: root,
   stdio: "inherit"
