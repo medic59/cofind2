@@ -924,7 +924,6 @@
               <textarea id="chat-input" rows="3" maxlength="4000" placeholder="Войдите, чтобы написать сообщение в общий чат" disabled></textarea>
               <div class="rich-toolbar" data-editor-target="chat-input" aria-label="Форматирование сообщения"></div>
               <div class="drawing-preview is-hidden" id="drawing-preview">
-                <img id="drawing-preview-image" alt="Превью рисунка из мини-холста" decoding="async" />
                 <div>
                   <strong>Рисунок прикреплен</strong>
                   <p>Он отправится вместе со следующим сообщением.</p>
@@ -2002,22 +2001,15 @@
       </section>
     </main>
 
-    <dialog class="canvas-dialog" id="canvas-dialog">
-      <form method="dialog" class="dialog-head">
-        <strong>Мини-холст</strong>
-        <button aria-label="Закрыть">×</button>
-      </form>
-      <div class="canvas-tools">
-        <label>Цвет <input id="brush-color" type="color" value="#2f7d63" /></label>
-        <label>Кисть <input id="brush-size" type="range" min="2" max="22" value="6" /></label>
-        <button id="eraser" type="button">Ластик</button>
-        <button id="clear-canvas" type="button">Очистить</button>
-      </div>
-      <canvas id="draw-canvas" width="400" height="300"></canvas>
-      <div class="dialog-actions">
-        <button class="secondary-button" id="send-drawing" type="button">Отправить рисунок</button>
-      </div>
-    </dialog>
+    <footer class="site-footer">
+      <nav class="footer-links" aria-label="Дополнительные ссылки">
+        <a href="/help" data-view-link="help">Как это работает</a>
+        <a href="/rules" data-view-link="rules">Правила</a>
+        <a href="/privacy" data-view-link="privacy">Приватность</a>
+        <a href="/contacts" data-view-link="contacts">Контакты</a>
+      </nav>
+      <p class="footer-copy">© 2026 Cofind 2</p>
+    </footer>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="/auth-boot.js?v=auth-boot-20260531"></script>

@@ -113,7 +113,7 @@ async function writeRoutePages(webUrl) {
     { file: "feed/index.html", path: "/feed", title: "Заявки - Cofind 2", views: ["feed"], active: "feed" },
     { file: "chat/index.html", path: "/chat", title: "Чат - Cofind 2", views: ["chat"], active: "chat" },
     { file: "auth/index.html", path: "/auth", title: "Вход - Cofind 2", views: ["auth"], active: "auth", noindex: true },
-    { file: "me/index.html", path: "/me", title: "Личный кабинет - Cofind 2", views: ["me", "auth"], active: "auth", noindex: true },
+    { file: "me/index.html", path: "/me", title: "Личный кабинет - Cofind 2", views: ["me"], active: "me", noindex: true },
     { file: "me/appearance/index.html", path: "/me/appearance", title: "Внешний вид - Cofind 2", views: ["appearance", "auth"], active: "auth", noindex: true },
     { file: "me/listings/new/index.html", path: "/me/listings/new", title: "Создать заявку - Cofind 2", views: ["new-listing", "auth"], active: "auth", noindex: true },
     { file: "me/inbox/index.html", path: "/me/inbox", title: "Сообщения - Cofind 2", views: ["inbox", "auth"], active: "auth", noindex: true },

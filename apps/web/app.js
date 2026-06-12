@@ -2845,13 +2845,21 @@ function syncBlockedAuthorUi() {
 
 function setDrawingPreview(dataUrl) {
   const preview = document.querySelector("#drawing-preview");
-  const image = document.querySelector("#drawing-preview-image");
-  if (!preview || !image) return;
+  if (!preview) return;
+  let image = preview.querySelector("#drawing-preview-image");
   if (!dataUrl) {
-    image.removeAttribute("src");
+    // Remove the preview image entirely so there is never an <img> with empty src.
+    if (image) image.remove();
     preview.classList.add("is-hidden");
     updateChatComposerState();
     return;
+  }
+  if (!image) {
+    image = document.createElement("img");
+    image.id = "drawing-preview-image";
+    image.alt = "Превью рисунка из мини-холста";
+    image.decoding = "async";
+    preview.prepend(image);
   }
   image.src = dataUrl;
   preview.classList.remove("is-hidden");
@@ -8940,17 +8948,97 @@ document.querySelector("#plans-list")?.addEventListener("click", async (event) =
   }
 });
 
-const dialog = document.querySelector("#canvas-dialog");
-const canvas = document.querySelector("#draw-canvas");
-const context = canvas?.getContext("2d");
-const brushColorInput = document.querySelector("#brush-color");
-const brushSizeInput = document.querySelector("#brush-size");
-const eraserButton = document.querySelector("#eraser");
+let dialog = null;
+let canvas = null;
+let context = null;
+let brushColorInput = null;
+let brushSizeInput = null;
+let eraserButton = null;
 let drawing = false;
 let lastPoint = null;
+let canvasMounted = false;
+
+const CANVAS_DIALOG_HTML = `
+      <form method="dialog" class="dialog-head">
+        <strong>Мини-холст</strong>
+        <button aria-label="Закрыть">×</button>
+      </form>
+      <div class="canvas-tools">
+        <label>Цвет <input id="brush-color" type="color" value="#2f7d63" /></label>
+        <label>Кисть <input id="brush-size" type="range" min="2" max="22" value="6" /></label>
+        <button id="eraser" type="button">Ластик</button>
+        <button id="clear-canvas" type="button">Очистить</button>
+      </div>
+      <canvas id="draw-canvas" width="400" height="300"></canvas>
+      <div class="dialog-actions">
+        <button class="secondary-button" id="send-drawing" type="button">Отправить рисунок</button>
+      </div>`;
+
+// The mini-canvas is built lazily on first use (only reachable from the chat
+// view), so it is not mounted in the DOM of every page.
+function ensureCanvas() {
+  if (canvasMounted) return;
+  canvasMounted = true;
+  dialog = document.createElement("dialog");
+  dialog.className = "canvas-dialog";
+  dialog.id = "canvas-dialog";
+  dialog.innerHTML = CANVAS_DIALOG_HTML;
+  document.body.appendChild(dialog);
+  canvas = dialog.querySelector("#draw-canvas");
+  context = canvas?.getContext("2d");
+  brushColorInput = dialog.querySelector("#brush-color");
+  brushSizeInput = dialog.querySelector("#brush-size");
+  eraserButton = dialog.querySelector("#eraser");
+
+  dialog.addEventListener("close", () => {
+    drawing = false;
+    lastPoint = null;
+  });
+  canvas?.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    drawing = true;
+    lastPoint = canvasPoint(event);
+    drawCanvasDot(lastPoint);
+    try {
+      canvas.setPointerCapture(event.pointerId);
+    } catch {
+      // Some browsers can deny capture after native color/range controls; drawing still works.
+    }
+  });
+  canvas?.addEventListener("pointermove", (event) => {
+    if (!drawing) return;
+    event.preventDefault();
+    drawTo(canvasPoint(event));
+  });
+  canvas?.addEventListener("pointerup", finishCanvasStroke);
+  canvas?.addEventListener("pointerleave", finishCanvasStroke);
+  canvas?.addEventListener("pointercancel", finishCanvasStroke);
+  brushColorInput?.addEventListener("input", () => setEraserMode(false));
+  brushSizeInput?.addEventListener("input", () => configureCanvasStroke());
+  eraserButton?.addEventListener("click", () => setEraserMode(!eraserMode));
+  dialog.querySelector("#clear-canvas")?.addEventListener("click", () => {
+    context?.clearRect(0, 0, canvas.width, canvas.height);
+  });
+  dialog.querySelector("#send-drawing")?.addEventListener("click", async () => {
+    if (!requireAuthForAction("Войдите, чтобы отправить рисунок в чат")) return;
+    const dataUrl = await optimizeImageDataUrl(canvas.toDataURL("image/png"), "drawing");
+    const validationError = validateImageDataUrl(dataUrl, "drawing");
+    if (validationError) {
+      showToast(validationError);
+      return;
+    }
+    drawingData = dataUrl;
+    setDrawingPreview(drawingData);
+    dialog.close();
+    showToast("Рисунок прикреплен к следующему сообщению");
+    focusRichEditor("chat-input");
+  });
+}
 
 function openCanvas() {
   if (!requireAuthForAction("Войдите, чтобы рисовать и отправлять в чат")) return;
+  ensureCanvas();
   if (!dialog?.showModal) {
     showToast("Ваш браузер не поддерживает dialog, но холст готов в коде прототипа");
     return;
@@ -8962,10 +9050,7 @@ function openCanvas() {
 
 document.querySelector("#open-canvas")?.addEventListener("click", openCanvas);
 document.querySelector("#open-canvas-bottom")?.addEventListener("click", openCanvas);
-dialog?.addEventListener("close", () => {
-  drawing = false;
-  lastPoint = null;
-});
+window.addEventListener("pointerup", finishCanvasStroke);
 
 function canvasPoint(event) {
   const rect = canvas.getBoundingClientRect();
@@ -9018,25 +9103,6 @@ function drawTo(point) {
   lastPoint = point;
 }
 
-canvas?.addEventListener("pointerdown", (event) => {
-  if (event.button !== undefined && event.button !== 0) return;
-  event.preventDefault();
-  drawing = true;
-  lastPoint = canvasPoint(event);
-  drawCanvasDot(lastPoint);
-  try {
-    canvas.setPointerCapture(event.pointerId);
-  } catch {
-    // Some browsers can deny capture after native color/range controls; drawing still works.
-  }
-});
-
-canvas?.addEventListener("pointermove", (event) => {
-  if (!drawing) return;
-  event.preventDefault();
-  drawTo(canvasPoint(event));
-});
-
 function finishCanvasStroke(event) {
   drawing = false;
   lastPoint = null;
@@ -9044,42 +9110,6 @@ function finishCanvasStroke(event) {
     canvas.releasePointerCapture(event.pointerId);
   }
 }
-
-canvas?.addEventListener("pointerup", finishCanvasStroke);
-canvas?.addEventListener("pointerleave", finishCanvasStroke);
-canvas?.addEventListener("pointercancel", finishCanvasStroke);
-window.addEventListener("pointerup", finishCanvasStroke);
-
-brushColorInput?.addEventListener("input", () => {
-  setEraserMode(false);
-});
-
-brushSizeInput?.addEventListener("input", () => {
-  configureCanvasStroke();
-});
-
-eraserButton?.addEventListener("click", () => {
-  setEraserMode(!eraserMode);
-});
-
-document.querySelector("#clear-canvas")?.addEventListener("click", () => {
-  context?.clearRect(0, 0, canvas.width, canvas.height);
-});
-
-document.querySelector("#send-drawing")?.addEventListener("click", async () => {
-  if (!requireAuthForAction("Войдите, чтобы отправить рисунок в чат")) return;
-  const dataUrl = await optimizeImageDataUrl(canvas.toDataURL("image/png"), "drawing");
-  const validationError = validateImageDataUrl(dataUrl, "drawing");
-  if (validationError) {
-    showToast(validationError);
-    return;
-  }
-  drawingData = dataUrl;
-  setDrawingPreview(drawingData);
-  dialog.close();
-  showToast("Рисунок прикреплен к следующему сообщению");
-  focusRichEditor("chat-input");
-});
 
 document.querySelector("#remove-drawing")?.addEventListener("click", () => {
   drawingData = null;

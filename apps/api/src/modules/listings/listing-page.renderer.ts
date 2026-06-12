@@ -123,6 +123,15 @@ export function documentShell(options: {
     <main class="listing-ssr-main" id="main-content">
 ${body}
     </main>
+    <footer class="site-footer">
+      <nav class="footer-links" aria-label="Дополнительные ссылки">
+        <a href="/help">Как это работает</a>
+        <a href="/rules">Правила</a>
+        <a href="/privacy">Приватность</a>
+        <a href="/contacts">Контакты</a>
+      </nav>
+      <p class="footer-copy">© 2026 Cofind 2</p>
+    </footer>
   </body>
 </html>
 `;

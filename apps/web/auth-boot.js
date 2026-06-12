@@ -80,6 +80,13 @@
     });
   }, true);
 
+  // Same-origin path to return to after auth (e.g. /auth?next=/me); defaults to /me.
+  function nextTarget() {
+    const next = new URLSearchParams(location.search).get("next");
+    if (next && /^\/(?!\/)[A-Za-z0-9/_?=&%.\-]*$/.test(next)) return next;
+    return "/me";
+  }
+
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!handledForms.has(form?.id)) return;
@@ -95,7 +102,7 @@
           password: authValue("#login-password")
         });
         storeSession(session);
-        location.assign("/me");
+        location.assign(nextTarget());
         return;
       }
 
@@ -108,7 +115,7 @@
           password: authValue("#register-password")
         });
         storeSession(session);
-        location.assign("/me");
+        location.assign(nextTarget());
         return;
       }
 
