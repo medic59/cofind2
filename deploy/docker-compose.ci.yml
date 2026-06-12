@@ -1,0 +1,10 @@
+# CI override: run the prod stack locally over http for tests.
+# NODE_ENV=test relaxes the production-only guards (https-required URLs, Secure
+# cookies) so the stack works on http://localhost without real TLS.
+services:
+  api:
+    environment:
+      NODE_ENV: test
+  web:
+    ports:
+      - "8092:80"

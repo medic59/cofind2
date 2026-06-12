@@ -38,6 +38,13 @@ function assertHasKeys(label, obj, required) {
   check(`${label}: has ${required.join("/")}`, missing.length === 0, `missing: ${missing.join(", ")}`);
 }
 
+// DTO schema snapshot: fail if the object has ANY key outside the allowed set
+// (so a newly-leaked field like reports/role trips the test, not just known ones).
+function assertExactKeys(label, obj, allowed) {
+  const extra = Object.keys(obj || {}).filter((key) => !allowed.includes(key));
+  check(`${label}: no unexpected fields (schema snapshot)`, extra.length === 0, `unexpected: ${extra.join(", ")}`);
+}
+
 async function getJson(path) {
   const res = await fetch(`${API_BASE}${path}`, { headers: { Accept: "application/json" } });
   const text = await res.text();
@@ -68,6 +75,11 @@ async function main() {
   assertNoKeys("/listings", hits, LISTING_FORBIDDEN);
   assertHasKeys("/listings item", sample, ["id", "type", "title", "slug", "ageRating", "fandomMode", "tags", "author"]);
   assertHasKeys("/listings author", sample.author || {}, ["username", "displayName"]);
+  assertExactKeys("/listings item", sample, [
+    "id", "type", "title", "slug", "body", "ageRating", "fandomMode", "publishedAt",
+    "tags", "genres", "fandoms", "characters", "likes", "responses", "likedByMe", "author"
+  ]);
+  assertExactKeys("/listings author", sample.author || {}, ["id", "username", "displayName", "avatarUrl", "bio"]);
 
   const slug = sample.slug;
   const username = sample.author?.username;
@@ -120,6 +132,24 @@ async function main() {
   const adminUsers = await getJson("/admin/users");
   check("/admin/users -> 401/403", adminUsers.status === 401 || adminUsers.status === 403, `status=${adminUsers.status}`);
   check("/admin/users -> JSON error envelope", adminUsers.body && adminUsers.body.ok === false && typeof adminUsers.body.error === "string", adminUsers.text.slice(0, 120));
+
+  // --- 403: authenticated but not staff -> /admin/users forbidden, JSON error ---
+  const email = process.env.SMOKE_USER_EMAIL || "mira@cofind.local";
+  const password = process.env.SMOKE_USER_PASSWORD || "password123";
+  const login = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  if (login.ok) {
+    const token = (await login.json()).accessToken;
+    const res = await fetch(`${API_BASE}/admin/users`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    const body = await res.json().catch(() => null);
+    check("non-staff -> /admin/users 403", res.status === 403, `status=${res.status}`);
+    check("403 -> JSON error envelope", body && body.ok === false && typeof body.error === "string");
+  } else {
+    console.log("  ..   403 check skipped (seed login unavailable)");
+  }
 
   if (failures > 0) {
     console.error(`\npublic-fields smoke FAILED (${failures} check(s))`);

@@ -17,9 +17,14 @@
     "ux:audit": "node scripts/ux-audit.js",
     "secrets:generate": "node scripts/generate-secrets.js",
     "release:prepare": "node scripts/prepare-release.js",
-    "release:check": "node scripts/release-check.js"
+    "release:check": "node scripts/release-check.js",
+    "test:api": "node apps/api/scripts/smoke-public-fields.js && node apps/api/scripts/smoke-listings-pagination.js && node apps/api/scripts/smoke-listing-page.js && node apps/api/scripts/smoke-realtime.js",
+    "test:seo": "node apps/web/scripts/seo-smoke.js",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "turbo": "^2.0.0"
   },
   "pnpm": {

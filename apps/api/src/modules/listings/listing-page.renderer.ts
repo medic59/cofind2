@@ -158,7 +158,7 @@ export function renderListingPage(listing: any, webUrl: string, slug: string) {
 
   const responses = Number(listing.responses ?? listing._count?.responses ?? 0);
   const likes = Number(listing.likes ?? 0);
-  const ogImage = absoluteImage(profile.avatarUrl, base);
+  const ogImage = absoluteImage(profile.avatarUrl, base) || `${base}/og-image.png`;
 
   const taxonomyBlock = (label: string, items: string[]) =>
     items.length

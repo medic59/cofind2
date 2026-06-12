@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Lint/typecheck + build + fast unit tests.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck + build (turbo)
+        run: pnpm run build
+      - name: Unit tests
+        run: pnpm --filter @cofind/web test:auth-state
+
+  # Bring up the full stack, then run API regression + SEO smoke + Playwright e2e.
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      POSTGRES_DB: cofind
+      POSTGRES_USER: cofind
+      POSTGRES_PASSWORD: ci_pg_password
+      JWT_ACCESS_SECRET: ci_access_secret_ci_access_secret_123456
+      JWT_REFRESH_SECRET: ci_refresh_secret_ci_refresh_secret_123456
+      MEILISEARCH_MASTER_KEY: ci_meili_master_key_ci_meili_master_key
+      PUBLIC_WEB_URL: http://localhost:8092
+      PUBLIC_API_BASE: http://localhost:8092/api/v1
+      TRUST_PROXY: "true"
+      API_DOCS_ENABLED: "false"
+      BASE_URL: http://localhost:8092
+      API_BASE: http://localhost:8092/api/v1
+      E2E_BASE_URL: http://localhost:8092
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Write CI env file
+        run: |
+          cat > deploy/.env.production <<EOF
+          POSTGRES_DB=$POSTGRES_DB
+          POSTGRES_USER=$POSTGRES_USER
+          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+          JWT_ACCESS_SECRET=$JWT_ACCESS_SECRET
+          JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET
+          MEILISEARCH_MASTER_KEY=$MEILISEARCH_MASTER_KEY
+          PUBLIC_WEB_URL=$PUBLIC_WEB_URL
+          PUBLIC_API_BASE=$PUBLIC_API_BASE
+          TRUST_PROXY=$TRUST_PROXY
+          API_DOCS_ENABLED=$API_DOCS_ENABLED
+          EOF
+
+      - name: Start stack
+        working-directory: deploy
+        run: docker compose -f docker-compose.cofind2.nginx.yml -f docker-compose.ci.yml --env-file .env.production -p cofindci up -d --build
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS "$API_BASE/health/live" >/dev/null 2>&1; then echo "api up"; exit 0; fi
+            sleep 2
+          done
+          echo "api did not become healthy"; docker compose -p cofindci logs api | tail -50; exit 1
+
+      - name: Migrate + seed
+        working-directory: deploy
+        run: |
+          docker compose -f docker-compose.cofind2.nginx.yml -f docker-compose.ci.yml -p cofindci exec -T api pnpm prisma:deploy
+          docker compose -f docker-compose.cofind2.nginx.yml -f docker-compose.ci.yml -p cofindci exec -T api pnpm seed
+
+      - name: API regression (DTO snapshot, pagination, error codes)
+        run: pnpm run test:api
+
+      - name: SEO smoke
+        run: pnpm run test:seo
+
+      - name: Playwright e2e
+        run: |
+          pnpm run e2e:install
+          pnpm run e2e
+
+      - name: Dump logs on failure
+        if: failure()
+        working-directory: deploy
+        run: docker compose -p cofindci logs --tail 100
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  # Deploy to the server, then smoke /health/ready. Requires repository secrets:
+  # SSH_HOST, SSH_USER, SSH_KEY (private key), and DEPLOY_URL (e.g. https://cofind2.com).
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/cofind2
+            git pull --ff-only origin main
+            cd deploy
+            docker compose -f docker-compose.cofind2.nginx.yml --env-file .env.production -p deploy up -d --build web api
+      - name: Post-deploy health smoke
+        run: |
+          for i in $(seq 1 30); do
+            body=$(curl -fsS "${{ secrets.DEPLOY_URL }}/api/v1/health/ready" || true)
+            echo "$body" | grep -q '"ok":true' && echo "healthy: $body" && exit 0
+            sleep 3
+          done
+          echo "health/ready did not report ok"; exit 1
