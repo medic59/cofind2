@@ -196,6 +196,8 @@ model User {
   passwordHash    String
   passwordResetTokenHash String?
   passwordResetExpiresAt DateTime?
+  emailVerificationTokenHash String?
+  emailVerificationExpiresAt DateTime?
   role            UserRole   @default(USER)
   status          UserStatus @default(ACTIVE)
   isPremium       Boolean    @default(false)
@@ -217,6 +219,7 @@ model User {
   likes               Like[]
   drawings            CanvasDrawing[]
   notifications       Notification[]
+  emailDigests        EmailDigest[]
   reportsSubmitted    Report[]                  @relation("Reporter")
   reportsHandled      Report[]                  @relation("Moderator")
   blockedUsers        UserBlock[]               @relation("Blocker")
@@ -282,7 +285,25 @@ model UserPreferences {
   showDecorations             Boolean  @default(true)
   animationLevel              String   @default("normal")
   showAdultContent            Boolean  @default(false)
+  emailOnResponse             Boolean  @default(true)
+  emailOnMessage              Boolean  @default(true)
+  unsubscribeToken            String?  @unique
   updatedAt                   DateTime @updatedAt
+}
+
+// Per-user, per-type throttle/grouping state for notification emails: at most one
+// email per hour per type, accumulating intervening events into a single digest.
+model EmailDigest {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           String // "RESPONSE" | "MESSAGE"
+  pendingCount   Int       @default(0)
+  firstPendingAt DateTime?
+  lastSentAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, type])
 }
 
 model Listing {

@@ -75,6 +75,8 @@ jobs:
       PUBLIC_API_BASE: http://localhost:8092/api/v1
       TRUST_PROXY: "true"
       API_DOCS_ENABLED: "false"
+      MAIL_PROVIDER: console
+      EMAIL_VERIFICATION_REQUIRED: "true"
       BASE_URL: http://localhost:8092
       API_BASE: http://localhost:8092/api/v1
       E2E_BASE_URL: http://localhost:8092
@@ -102,6 +104,8 @@ jobs:
           PUBLIC_API_BASE=$PUBLIC_API_BASE
           TRUST_PROXY=$TRUST_PROXY
           API_DOCS_ENABLED=$API_DOCS_ENABLED
+          MAIL_PROVIDER=$MAIL_PROVIDER
+          EMAIL_VERIFICATION_REQUIRED=$EMAIL_VERIFICATION_REQUIRED
           EOF
 
       - name: Start stack
@@ -166,6 +170,7 @@ jobs:
             cd deploy
             export SENTRY_RELEASE="$SENTRY_RELEASE"
             docker compose -f docker-compose.cofind2.nginx.yml --env-file .env.production -p deploy up -d --build web api
+            docker compose -f docker-compose.cofind2.nginx.yml --env-file .env.production -p deploy exec -T api pnpm prisma:deploy
       - name: Post-deploy health smoke
         run: |
           for i in $(seq 1 30); do

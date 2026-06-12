@@ -10,12 +10,19 @@ import { BlockUserDto, CheckoutDto, CreateBackgroundDto, UpdatePreferencesDto } 
 export class MeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  preferences(userId: string) {
-    return this.prisma.userPreferences.upsert({
+  async preferences(userId: string) {
+    const prefs = await this.prisma.userPreferences.upsert({
       where: { userId },
       create: { userId },
       update: {}
     });
+    return this.hidePrivatePrefs(prefs);
+  }
+
+  // The unsubscribe token is a capability secret — never return it to the client.
+  private hidePrivatePrefs<T extends { unsubscribeToken?: unknown }>(prefs: T): T {
+    if (prefs) delete (prefs as { unsubscribeToken?: unknown }).unsubscribeToken;
+    return prefs;
   }
 
   async updatePreferences(userId: string, dto: UpdatePreferencesDto) {
@@ -33,7 +40,7 @@ export class MeService {
     if (dto.dashboardBackgroundImage !== undefined) {
       await deleteUploadedImageIfReplaced(previous?.dashboardBackgroundImage, preferences.dashboardBackgroundImage);
     }
-    return preferences;
+    return this.hidePrivatePrefs(preferences);
   }
 
   async background(userId: string, dto: CreateBackgroundDto) {
@@ -60,7 +67,7 @@ export class MeService {
       }
     });
     await deleteUploadedImageIfReplaced(previous?.dashboardBackgroundImage, preferences.dashboardBackgroundImage);
-    return preferences;
+    return this.hidePrivatePrefs(preferences);
   }
 
   async clearBackground(userId: string) {
@@ -87,7 +94,7 @@ export class MeService {
       }
     });
     await deleteUploadedImageIfReplaced(previous?.dashboardBackgroundImage, null);
-    return preferences;
+    return this.hidePrivatePrefs(preferences);
   }
 
   async subscription(userId: string) {

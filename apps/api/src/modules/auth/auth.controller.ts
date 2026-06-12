@@ -79,6 +79,24 @@ export class AuthController {
     return this.auth.confirmPasswordReset(dto);
   }
 
+  // Opened from the verification email; verifies then redirects back to the SPA.
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: rateLimit(20, 120) } })
+  @Get("auth/verify-email")
+  async verifyEmail(@Req() request: any, @Res() response: any) {
+    const token = String(request.query?.token || "");
+    const result = await this.auth.verifyEmail(token);
+    const web = (process.env.PUBLIC_WEB_URL || "http://localhost:3000").split(",")[0].trim().replace(/\/+$/, "");
+    response.redirect(302, `${web}/me?verified=${result.ok ? "1" : "0"}`);
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { ttl: 60_000, limit: rateLimit(4, 120) } })
+  @Post("auth/resend-verification")
+  resendVerification(@CurrentUser() user: RequestUser) {
+    return this.auth.resendVerification(user.id);
+  }
+
   @ApiBearerAuth()
   @Get("auth/me")
   me(@CurrentUser() user: RequestUser) {

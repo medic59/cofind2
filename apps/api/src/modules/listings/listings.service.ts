@@ -4,6 +4,7 @@ import { PageQueryDto } from "../../common/page-query.dto";
 import { paged, pagination } from "../../common/pagination";
 import { sanitizeRichText, richPlainTextLength, richTextLength } from "../../common/rich-text";
 import { MessagingService } from "../messaging/messaging.service";
+import { NotificationEmailService } from "../notifications/notification-email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateListingDto, ListListingsQueryDto, RespondListingDto, UpdateListingDto, UpdateResponseStatusDto } from "./dto";
 
@@ -21,7 +22,8 @@ const includeListing = {
 export class ListingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly messaging: MessagingService
+    private readonly messaging: MessagingService,
+    private readonly notificationEmail: NotificationEmailService
   ) {}
 
   async list(query: ListListingsQueryDto, viewerId?: string) {
@@ -175,6 +177,7 @@ export class ListingsService {
 
   async publish(authorId: string, id: string) {
     await this.ensureOwnListing(authorId, id);
+    await this.assertEmailVerified(authorId, "публиковать заявки");
     const listing = await this.prisma.listing.update({
       where: { id },
       data: {
@@ -239,13 +242,16 @@ export class ListingsService {
       select: { id: true }
     });
     if (block) throw new ForbiddenException("Interaction is blocked");
-    return this.prisma.listingResponse.create({
+    const response = await this.prisma.listingResponse.create({
       data: {
         listingId,
         senderId,
         message
       }
     });
+    // Notify the listing author by email (grouped, best-effort, never blocks).
+    void this.notificationEmail.queueResponse(listing.authorId);
+    return response;
   }
 
   async myResponses(userId: string, query: PageQueryDto = {}) {
@@ -429,8 +435,18 @@ export class ListingsService {
   }
 
   private async assertCanCommunicate(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { status: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { status: true, emailVerifiedAt: true } });
     if (!user || user.status === "MUTED") throw new ForbiddenException("User is muted");
+    if (!user.emailVerifiedAt) {
+      throw new ForbiddenException({ error: "EMAIL_NOT_VERIFIED", message: "Подтвердите e-mail, чтобы откликаться и писать сообщения" });
+    }
+  }
+
+  private async assertEmailVerified(userId: string, action: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { emailVerifiedAt: true } });
+    if (!user?.emailVerifiedAt) {
+      throw new ForbiddenException({ error: "EMAIL_NOT_VERIFIED", message: `Подтвердите e-mail, чтобы ${action}` });
+    }
   }
 
   private countLikes(entityType: string, entityId: string) {

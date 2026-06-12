@@ -492,6 +492,10 @@ async function main() {
     })
   ]);
 
+  // Demo users are established fixtures — mark them email-verified so they can
+  // publish and message (new real registrations still require verification).
+  await prisma.user.updateMany({ where: { emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
+
   console.log("Seeded Cofind 2 demo data.");
 }
 

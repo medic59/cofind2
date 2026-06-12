@@ -10,6 +10,7 @@ import { HealthModule } from "./modules/health/health.module";
 import { ListingsModule } from "./modules/listings/listings.module";
 import { MeModule } from "./modules/me/me.module";
 import { MessagingModule } from "./modules/messaging/messaging.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { ProfilesModule } from "./modules/profiles/profiles.module";
@@ -34,6 +35,7 @@ import { UploadsModule } from "./modules/uploads/uploads.module";
     CatalogModule,
     ChatModule,
     MessagingModule,
+    NotificationsModule,
     ReportsModule,
     SearchModule,
     PaymentsModule,

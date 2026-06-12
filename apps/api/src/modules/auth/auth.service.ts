@@ -4,7 +4,8 @@ import { hash, verify as verifyHash } from "argon2";
 import { createHash, randomBytes } from "crypto";
 import { sign, verify } from "jsonwebtoken";
 import { parsePublicWebOrigins } from "../../common/env";
-import { sendTransactionalEmail } from "../../common/mail";
+import { emailVerificationRequired, sendTransactionalEmail } from "../../common/mail";
+import { verificationEmail } from "../../common/mail-templates";
 import { PrismaService } from "../prisma/prisma.service";
 import { deleteUploadedImageByUrl, deleteUploadedImageIfReplaced } from "../uploads/upload-storage";
 import {
@@ -32,10 +33,16 @@ export class AuthService {
     });
     if (existing) throw new ConflictException("Email or username is already used");
 
+    const requireVerification = emailVerificationRequired();
+    const verificationToken = randomBytes(32).toString("hex");
     const user = await this.prisma.user.create({
       data: {
         email,
         passwordHash: await hash(dto.password),
+        // When verification is off, auto-verify so the gate never blocks anyone.
+        emailVerifiedAt: requireVerification ? null : new Date(),
+        emailVerificationTokenHash: requireVerification ? this.tokenHash(verificationToken) : null,
+        emailVerificationExpiresAt: requireVerification ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
         profile: {
           create: {
             username,
@@ -47,7 +54,57 @@ export class AuthService {
       include: { profile: true, preferences: true }
     });
 
+    if (requireVerification) {
+      await this.sendVerificationEmail(email, user.profile?.displayName || username, verificationToken);
+    }
+
     return this.session(user);
+  }
+
+  // Confirm e-mail from the link in the verification email. Idempotent: an already
+  // verified or unknown token both report ok=false rather than throwing.
+  async verifyEmail(token: string) {
+    if (!token) return { ok: false };
+    const user = await this.prisma.user.findFirst({
+      where: { emailVerificationTokenHash: this.tokenHash(token), emailVerificationExpiresAt: { gt: new Date() } },
+      select: { id: true }
+    });
+    if (!user) return { ok: false };
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: new Date(), emailVerificationTokenHash: null, emailVerificationExpiresAt: null }
+    });
+    return { ok: true };
+  }
+
+  async resendVerification(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, emailVerifiedAt: true, profile: { select: { displayName: true, username: true } } }
+    });
+    if (!user) throw new NotFoundException("User not found");
+    if (user.emailVerifiedAt) return { ok: true, alreadyVerified: true };
+    const token = randomBytes(32).toString("hex");
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerificationTokenHash: this.tokenHash(token),
+        emailVerificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      }
+    });
+    await this.sendVerificationEmail(user.email, user.profile?.displayName || user.profile?.username || "автор", token);
+    return { ok: true };
+  }
+
+  private async sendVerificationEmail(email: string, displayName: string, token: string) {
+    const apiBase = (process.env.PUBLIC_API_BASE || "").split(",")[0].trim().replace(/\/+$/, "")
+      || `${parsePublicWebOrigins(process.env.PUBLIC_WEB_URL)[0] || "http://localhost:3000"}/api/v1`;
+    const verifyUrl = `${apiBase}/auth/verify-email?token=${encodeURIComponent(token)}`;
+    try {
+      await sendTransactionalEmail({ to: email, ...verificationEmail({ displayName, verifyUrl }) });
+    } catch (error) {
+      console.error("[mail] verification email failed", error);
+    }
   }
 
   async login(dto: LoginDto) {
@@ -171,6 +228,7 @@ export class AuthService {
         role: true,
         status: true,
         isPremium: true,
+        emailVerifiedAt: true,
         lastSeenAt: true,
         profile: true,
         preferences: true,
@@ -178,7 +236,9 @@ export class AuthService {
       }
     });
     if (!user) throw new NotFoundException("User not found");
-    return user;
+    // Never expose the unsubscribe token to the client.
+    if (user.preferences) delete (user.preferences as { unsubscribeToken?: unknown }).unsubscribeToken;
+    return { ...user, emailVerified: Boolean(user.emailVerifiedAt) };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {

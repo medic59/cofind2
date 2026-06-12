@@ -19,7 +19,7 @@
     "release:prepare": "node scripts/prepare-release.js",
     "release:check": "node scripts/release-check.js",
     "test:unit": "pnpm --filter @cofind/api exec tsx scripts/test-pluralize.ts",
-    "test:api": "node apps/api/scripts/smoke-public-fields.js && node apps/api/scripts/smoke-listings-pagination.js && node apps/api/scripts/smoke-listing-page.js && node apps/api/scripts/smoke-realtime.js",
+    "test:api": "node apps/api/scripts/smoke-public-fields.js && node apps/api/scripts/smoke-listings-pagination.js && node apps/api/scripts/smoke-listing-page.js && node apps/api/scripts/smoke-realtime.js && node apps/api/scripts/smoke-email.js",
     "test:seo": "node apps/web/scripts/seo-smoke.js",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium"

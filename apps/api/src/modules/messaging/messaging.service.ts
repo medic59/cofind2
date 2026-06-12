@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { sanitizeRichText, richPlainTextLength, richTextLength } from "../../common/rich-text";
+import { NotificationEmailService } from "../notifications/notification-email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateConversationDto, SendMessageDto } from "./dto";
 
@@ -26,7 +27,10 @@ const conversationInclude = {
 
 @Injectable()
 export class MessagingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationEmail: NotificationEmailService
+  ) {}
 
   async create(userId: string, dto: CreateConversationDto) {
     await this.assertCanCommunicate(userId);
@@ -51,6 +55,11 @@ export class MessagingService {
       },
       include: conversationInclude
     });
+    if (dto.initialMessage) {
+      for (const pid of participantIds) {
+        if (pid !== userId) void this.notificationEmail.queueMessage(pid);
+      }
+    }
     return conversation;
   }
 
@@ -107,8 +116,8 @@ export class MessagingService {
     await this.assertUsersAvailable(participantIds);
     await this.assertNoBlocks(participantIds);
     const text = this.safeMessageText(dto.text);
-    return this.prisma.$transaction(async (tx) => {
-      const message = await tx.message.create({
+    const message = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.message.create({
         data: {
           conversationId,
           senderId: userId,
@@ -117,8 +126,13 @@ export class MessagingService {
         include: { sender: { select: { id: true, role: true, profile: true } } }
       });
       await tx.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
-      return message;
+      return created;
     });
+    // Notify the other participants by email (grouped, best-effort).
+    for (const pid of participantIds) {
+      if (pid !== userId) void this.notificationEmail.queueMessage(pid);
+    }
+    return message;
   }
 
   async deleteOwn(userId: string, conversationId: string, messageId: string) {
@@ -212,7 +226,10 @@ export class MessagingService {
   }
 
   private async assertCanCommunicate(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { status: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { status: true, emailVerifiedAt: true } });
     if (!user || user.status === "MUTED") throw new ForbiddenException("User is muted");
+    if (!user.emailVerifiedAt) {
+      throw new ForbiddenException({ error: "EMAIL_NOT_VERIFIED", message: "Подтвердите e-mail, чтобы писать сообщения" });
+    }
   }
 }

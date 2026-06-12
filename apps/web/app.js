@@ -6202,6 +6202,7 @@ async function loadMe() {
     ]);
     if (!isCurrentLoadedUser(me)) return;
     renderMeDashboard({ me, publicProfile, myListings, likedListings, sentResponses, incomingResponses, notifications, blocks });
+    applyEmailNotificationSettings(me);
     loadAdminDashboard();
   } catch {
     showToast("Не удалось обновить часть данных личного кабинета");
@@ -9122,3 +9123,55 @@ document.querySelector("#remove-drawing")?.addEventListener("click", () => {
   setDrawingPreview(null);
   showToast("Рисунок убран");
 });
+
+// --- E-mail verification banner + notification settings ---
+let emailSettingsApplying = false;
+
+function applyEmailNotificationSettings(me) {
+  const verifyBlock = document.querySelector("#me-email-verify");
+  if (verifyBlock) {
+    verifyBlock.classList.toggle("is-hidden", me?.emailVerified !== false);
+    const addr = document.querySelector("#me-email-address");
+    if (addr) addr.textContent = me?.email || "";
+  }
+  const prefs = me?.preferences || {};
+  emailSettingsApplying = true;
+  const responseToggle = document.querySelector("#notify-email-response");
+  const messageToggle = document.querySelector("#notify-email-message");
+  if (responseToggle) responseToggle.checked = prefs.emailOnResponse !== false;
+  if (messageToggle) messageToggle.checked = prefs.emailOnMessage !== false;
+  emailSettingsApplying = false;
+}
+
+async function saveEmailNotificationSettings() {
+  if (emailSettingsApplying || !authSession.accessToken) return;
+  const body = {
+    emailOnResponse: document.querySelector("#notify-email-response")?.checked !== false,
+    emailOnMessage: document.querySelector("#notify-email-message")?.checked !== false
+  };
+  try {
+    await apiFetch("/me/preferences", { method: "PATCH", body: JSON.stringify(body) });
+    showToast("Настройки уведомлений сохранены");
+  } catch {
+    showToast("Не удалось сохранить настройки уведомлений");
+  }
+}
+
+document.querySelector("#notify-email-response")?.addEventListener("change", saveEmailNotificationSettings);
+document.querySelector("#notify-email-message")?.addEventListener("change", saveEmailNotificationSettings);
+document.querySelector("#resend-verification")?.addEventListener("click", async () => {
+  try {
+    await apiFetch("/auth/resend-verification", { method: "POST" });
+    showToast("Письмо отправлено повторно. Проверьте почту.");
+  } catch {
+    showToast("Не удалось отправить письмо. Попробуйте позже.");
+  }
+});
+
+try {
+  const verified = new URLSearchParams(location.search).get("verified");
+  if (verified === "1") showToast("E-mail подтверждён");
+  else if (verified === "0") showToast("Ссылка подтверждения устарела. Запросите новое письмо в личном кабинете.");
+} catch {
+  // no-op
+}

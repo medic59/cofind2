@@ -87,6 +87,14 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   showAdultContent?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  emailOnResponse?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  emailOnMessage?: boolean;
 }
 
 export class CheckoutDto {
