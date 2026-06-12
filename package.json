@@ -22,5 +22,10 @@
   "devDependencies": {
     "turbo": "^2.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "@hono/node-server@<1.19.13": "^1.19.13"
+    }
+  },
   "packageManager": "pnpm@9.1.0"
 }
