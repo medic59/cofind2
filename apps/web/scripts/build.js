@@ -110,7 +110,8 @@ async function rewriteIndex(webUrl, apiBase) {
 // self-hosted SDK + config meta into <head> (inherited by all route pages). The
 // SDK and init are 'self' files so the strict script-src CSP allows them.
 function injectSentry(html) {
-  const dsn = process.env.SENTRY_DSN;
+  // Frontend uses its own browser-project DSN (separate from the API's SENTRY_DSN).
+  const dsn = process.env.SENTRY_DSN_WEB;
   if (!dsn) return html;
   const tags = [
     `<meta name="cofind-sentry-dsn" content="${escapeAttr(dsn)}" />`,

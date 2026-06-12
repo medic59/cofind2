@@ -48,18 +48,21 @@ JSON-строка в stdout:
 
 Всё DSN-driven: без `SENTRY_DSN` SDK не инициализируется (полный no-op). Чтобы включить:
 
-**Бэкенд + фронтенд (runtime/build):** добавить в `deploy/.env.production` на сервере:
+Бэкенд и фронтенд — **разные Sentry-проекты** (Node и Browser), поэтому два DSN. Добавить в
+`deploy/.env.production` на сервере:
 
 ```
-SENTRY_DSN=https://<key>@<host>/<project>
+SENTRY_DSN=https://<key>@<host>/<api-project>          # бэкенд (cofind-api, Node)
+SENTRY_DSN_WEB=https://<key>@<host>/<web-project>      # фронтенд (cofind2-web, Browser)
 SENTRY_ENVIRONMENT=production
 SENTRY_TRACES_SAMPLE_RATE=0        # 0 = только ошибки; 0.1 = 10% трейсов производительности
 ```
 
-- API читает их из `env_file` (`.env.production`).
-- Web читает их как build-args при пересборке (compose интерполирует из `--env-file`); фронт-SDK
-  самохостится в `apps/web/vendor/sentry.min.js` (CSP `script-src 'self'` запрещает CDN), инициализация
-  в `sentry-init.js` по `<meta>`-тегам, которые `build.js` вставляет только при заданном `SENTRY_DSN`.
+- API читает `SENTRY_DSN` из `env_file` (`.env.production`).
+- Web читает `SENTRY_DSN_WEB` как build-arg при пересборке (compose интерполирует из `--env-file`);
+  фронт-SDK самохостится в `apps/web/vendor/sentry.min.js` (CSP `script-src 'self'` запрещает CDN),
+  инициализация в `sentry-init.js` по `<meta>`-тегам, которые `build.js` вставляет только при заданном
+  `SENTRY_DSN_WEB`.
 
 После правки `.env.production` — пересобрать: `docker compose … -p deploy up -d --build web api`.
 
