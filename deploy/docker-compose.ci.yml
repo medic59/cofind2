@@ -1,10 +1,13 @@
 # CI override: run the prod stack locally over http for tests.
 # NODE_ENV=test relaxes the production-only guards (https-required URLs, Secure
 # cookies) so the stack works on http://localhost without real TLS.
+#
+# Do NOT republish the web port here: compose MERGES `ports` lists across files,
+# so adding "8092:80" on top of the base "127.0.0.1:8092:80" produced two
+# bindings on host 8092 (loopback + 0.0.0.0) that collide ("port already
+# allocated"). The base already exposes web on 127.0.0.1:8092, which is what the
+# CI tests hit.
 services:
   api:
     environment:
       NODE_ENV: test
-  web:
-    ports:
-      - "8092:80"
