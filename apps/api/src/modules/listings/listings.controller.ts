@@ -7,6 +7,7 @@ import { Public } from "../auth/public.decorator";
 import { CreateListingDto, ListListingsQueryDto, RespondListingDto, UpdateListingDto, UpdateResponseStatusDto } from "./dto";
 import { serializeListingResult, toPublicListing } from "../../common/public-view";
 import { renderFeedCards, renderListingNotFound, renderListingPage } from "./listing-page.renderer";
+import { getListingOgPng } from "./og-image";
 import { ListingsService } from "./listings.service";
 
 function publicWebUrl() {
@@ -77,6 +78,25 @@ export class ListingsController {
         return;
       }
       throw error;
+    }
+  }
+
+  // Dynamic Open Graph card (1200x630 PNG) for /listings/<slug>, served via nginx
+  // at /listings/<slug>/og.png. Falls back to the static brand image so a social
+  // crawler never sees a broken og:image, whatever goes wrong.
+  @Public()
+  @ApiExcludeEndpoint()
+  @Get(":slug/og.png")
+  async ogImage(@Param("slug") slug: string, @Res() res: any) {
+    try {
+      const listing = await this.listings.get(slug);
+      const png = await getListingOgPng(listing);
+      res.status(200);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(png);
+    } catch {
+      res.redirect(302, `${publicWebUrl()}/og-image.png`);
     }
   }
 

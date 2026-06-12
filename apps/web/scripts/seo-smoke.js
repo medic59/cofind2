@@ -84,6 +84,13 @@ async function main() {
     check("/profile/<username> canonical carries username", canonical((await getText(`/profile/${username}`)).html)?.endsWith(`/profile/${username}`));
   }
 
+  // The listing's dynamic OG card must resolve to a real image.
+  if (slug) {
+    const ogRes = await fetch(`${BASE}/listings/${slug}/og.png`);
+    const ct = ogRes.headers.get("content-type") || "";
+    check("listing og.png returns an image", ogRes.status === 200 && /^image\//.test(ct), `status=${ogRes.status} ct=${ct}`);
+  }
+
   // Sitemap: <loc> URLs must have no query params; listings + fandoms present;
   // every <lastmod> a valid ISO timestamp. If the root is a sitemap index, pull
   // the per-type sub-sitemaps and assert over their combined entries.
