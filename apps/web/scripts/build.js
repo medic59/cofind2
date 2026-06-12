@@ -114,10 +114,10 @@ async function writeRoutePages(webUrl) {
     { file: "chat/index.html", path: "/chat", title: "Чат - Cofind 2", views: ["chat"], active: "chat" },
     { file: "auth/index.html", path: "/auth", title: "Вход - Cofind 2", views: ["auth"], active: "auth", noindex: true },
     { file: "me/index.html", path: "/me", title: "Личный кабинет - Cofind 2", views: ["me"], active: "me", noindex: true },
-    { file: "me/appearance/index.html", path: "/me/appearance", title: "Внешний вид - Cofind 2", views: ["appearance", "auth"], active: "auth", noindex: true },
-    { file: "me/listings/new/index.html", path: "/me/listings/new", title: "Создать заявку - Cofind 2", views: ["new-listing", "auth"], active: "auth", noindex: true },
-    { file: "me/inbox/index.html", path: "/me/inbox", title: "Сообщения - Cofind 2", views: ["inbox", "auth"], active: "auth", noindex: true },
-    { file: "me/subscription/index.html", path: "/me/subscription", title: "Подписка - Cofind 2", views: ["subscription", "auth"], active: "auth", noindex: true },
+    { file: "me/appearance/index.html", path: "/me/appearance", title: "Внешний вид - Cofind 2", views: ["appearance"], active: "appearance", noindex: true },
+    { file: "me/listings/new/index.html", path: "/me/listings/new", title: "Создать заявку - Cofind 2", views: ["new-listing"], active: "new-listing", noindex: true },
+    { file: "me/inbox/index.html", path: "/me/inbox", title: "Сообщения - Cofind 2", views: ["inbox"], active: "inbox", noindex: true },
+    { file: "me/subscription/index.html", path: "/me/subscription", title: "Подписка - Cofind 2", views: ["subscription"], active: "subscription", noindex: true },
     { file: "admin/index.html", path: "/admin", title: "Админка - Cofind 2", views: ["admin", "auth", "me"], active: "auth", noindex: true },
     { file: "listing/index.html", path: "/listing", title: "Заявка - Cofind 2", views: ["listing"], active: "listing" },
     { file: "profile/index.html", path: "/profile", title: "Профиль автора - Cofind 2", views: ["profile"], active: "profile" },
@@ -128,7 +128,7 @@ async function writeRoutePages(webUrl) {
     { file: "rules/index.html", path: "/rules", title: "Правила - Cofind 2", views: ["rules"], active: "rules" },
     { file: "privacy/index.html", path: "/privacy", title: "Приватность - Cofind 2", views: ["privacy"], active: "privacy" },
     { file: "contacts/index.html", path: "/contacts", title: "Контакты - Cofind 2", views: ["contacts"], active: "contacts" },
-    { file: "reports/new/index.html", path: "/reports/new", title: "Жалоба - Cofind 2", views: ["report", "auth"], active: "auth", noindex: true }
+    { file: "reports/new/index.html", path: "/reports/new", title: "Жалоба - Cofind 2", views: ["report"], active: "report", noindex: true }
   ];
 
   for (const route of routes) {
