@@ -43,9 +43,13 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT_API: ${{ secrets.SENTRY_PROJECT_API }}
           SENTRY_PROJECT_WEB: ${{ secrets.SENTRY_PROJECT_WEB }}
-          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+          SENTRY_URL_INPUT: ${{ secrets.SENTRY_URL }}
           SENTRY_RELEASE: ${{ github.sha }}
         run: |
+          # Only export SENTRY_URL for self-hosted. An empty value breaks sentry-cli
+          # ("bad sentry url: unknown scheme"); unset lets it use sentry.io + the
+          # region embedded in the org auth token.
+          if [ -n "$SENTRY_URL_INPUT" ]; then export SENTRY_URL="$SENTRY_URL_INPUT"; fi
           # Backend project (Node) — apps/api/dist sourcemaps.
           npx @sentry/cli@^2 releases new "$SENTRY_RELEASE" --project "$SENTRY_PROJECT_API"
           npx @sentry/cli@^2 releases files "$SENTRY_RELEASE" upload-sourcemaps apps/api/dist --project "$SENTRY_PROJECT_API" --rewrite || true
