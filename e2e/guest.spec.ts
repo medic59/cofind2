@@ -15,10 +15,18 @@ test.describe("guest", () => {
     await expect(page.getByRole("link", { name: /Откликнуться/ }).first()).toBeVisible();
   });
 
-  test("guest opening /me is redirected to /auth?next=/me", async ({ page }) => {
+  test("guest opening /me is bounced to the auth form (server 302 carries next)", async ({ page }) => {
     await page.context().clearCookies();
+    // Server contract: the nginx guard 302-redirects /me -> /auth?next=/me for guests.
+    const res = await page.request.get("/me", { maxRedirects: 0 });
+    expect(res.status()).toBe(302);
+    expect(res.headers()["location"]).toMatch(/\/auth\?next=\/me$/);
+    // UX: navigating in the browser lands on the auth form. The client router
+    // normalizes the visible URL to /auth and keeps `next` in memory (the
+    // "login returns to /me" test below verifies the round-trip end-to-end).
     await page.goto("/me");
-    await expect(page).toHaveURL(/\/auth\?next=\/me$/);
+    await expect(page).toHaveURL(/\/auth(\?next=\/me)?$/);
+    await expect(page.locator("#login-form")).toBeVisible();
   });
 
   test("login from /auth?next=/me returns to /me", async ({ page }) => {

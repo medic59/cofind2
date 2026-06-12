@@ -22,11 +22,17 @@ test("register a new user then create a listing", async ({ page }) => {
   await page.goto("/me/listings/new");
   await page.selectOption("#listing-type", { index: 1 });
   await page.fill("#listing-title-input", `E2E заявка ${stamp} — ищу соавтора для теста`);
-  const body = page.locator("#listing-body-input");
+  // The description field is a rich contenteditable editor that shadows the
+  // (hidden) #listing-body-input textarea; type into the editor surface, which
+  // syncs back to the textarea the submit handler reads.
+  const body = page.locator('[data-rich-editor-for="listing-body-input"] .rich-editor');
+  await expect(body).toBeVisible();
   await body.click();
   await body.fill("Тестовое описание заявки для e2e: ищу партнёра, спокойный темп, согласованные границы.");
   await page.click("#listing-submit");
-  // The submit shows a success toast (or a non-error form note).
-  await expect(page.locator("#toast.is-visible")).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator("#toast")).not.toHaveText(/ошиб|не удалось|fail/i);
+  // On success the handler navigates back to /me; the error path only shows a
+  // toast and stays on the form. So landing on /me is the reliable success
+  // signal (the transient success toast is too racy to assert directly).
+  await expect(page).toHaveURL(/\/me$/, { timeout: 15_000 });
+  await expect(page.locator("#logout-button")).toBeVisible();
 });
