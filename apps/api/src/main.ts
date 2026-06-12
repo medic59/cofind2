@@ -5,6 +5,8 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { assertRuntimeEnv, isSwaggerEnabled, loadDotEnv, parsePublicWebOrigins } from "./common/env";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
+import { requestContextMiddleware } from "./common/request-context";
+import { initSentry } from "./common/sentry";
 import { ChatRealtimeService } from "./modules/chat/chat-realtime.service";
 
 const { json, urlencoded } = require("express");
@@ -12,11 +14,16 @@ const { json, urlencoded } = require("express");
 async function bootstrap() {
   loadDotEnv();
   assertRuntimeEnv();
+  // DSN-driven: a no-op unless SENTRY_DSN is set. Initialized before the app.
+  initSentry();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   app.getHttpAdapter().getInstance().disable("x-powered-by");
   if (process.env.TRUST_PROXY === "true") {
     app.getHttpAdapter().getInstance().set("trust proxy", 1);
   }
+  // Request-id + structured request logging first, so every response (and the
+  // exception filter) carries a correlation id.
+  app.use(requestContextMiddleware);
   app.use(json({ limit: "512kb" }));
   app.use(urlencoded({ extended: true, limit: "512kb" }));
   app.use((_request: unknown, response: { setHeader: (name: string, value: string) => void }, next: () => void) => {

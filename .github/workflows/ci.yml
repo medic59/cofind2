@@ -9,8 +9,14 @@ jobs:
   # Lint/typecheck + build + fast unit tests.
   build:
     runs-on: ubuntu-latest
+    # Exposed so the Sentry step's `if` can detect whether the secret is set
+    # (secrets can't be referenced directly in step `if:` conditions).
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 9.1.0
@@ -25,6 +31,24 @@ jobs:
         run: |
           pnpm --filter @cofind/web test:auth-state
           pnpm run test:unit
+
+      # Create the Sentry release (= commit sha) and upload sourcemaps. Skipped
+      # unless SENTRY_AUTH_TOKEN (+ SENTRY_ORG/PROJECT, and SENTRY_URL for
+      # self-hosted) repository secrets are configured. The release sha matches
+      # the one the deploy job injects into the running services.
+      - name: Sentry release & sourcemaps
+        if: ${{ github.ref == 'refs/heads/main' && env.SENTRY_AUTH_TOKEN != '' }}
+        env:
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          npx @sentry/cli@^2 releases new "$SENTRY_RELEASE"
+          npx @sentry/cli@^2 releases files "$SENTRY_RELEASE" upload-sourcemaps apps/api/dist --rewrite || true
+          npx @sentry/cli@^2 releases files "$SENTRY_RELEASE" upload-sourcemaps apps/web/dist --rewrite || true
+          npx @sentry/cli@^2 releases set-commits "$SENTRY_RELEASE" --auto || true
+          npx @sentry/cli@^2 releases finalize "$SENTRY_RELEASE"
 
   # Bring up the full stack, then run API regression + SEO smoke + Playwright e2e.
   test:
@@ -119,14 +143,18 @@ jobs:
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          SENTRY_RELEASE: ${{ github.sha }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          envs: SENTRY_RELEASE
           script: |
             cd ~/cofind2
             git pull --ff-only origin main
             cd deploy
+            export SENTRY_RELEASE="$SENTRY_RELEASE"
             docker compose -f docker-compose.cofind2.nginx.yml --env-file .env.production -p deploy up -d --build web api
       - name: Post-deploy health smoke
         run: |

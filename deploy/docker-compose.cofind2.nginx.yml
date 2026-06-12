@@ -54,6 +54,9 @@ services:
       MEILISEARCH_HOST: http://meilisearch:7700
       MEILI_HOST: http://meilisearch:7700
       REDIS_URL: redis://redis:6379
+      # Sentry DSN/environment/traces come from .env.production (env_file);
+      # SENTRY_RELEASE is injected by CI (git sha) so events match uploaded maps.
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
     volumes:
       - uploads-data:/app/apps/api/uploads
     ports:
@@ -78,6 +81,10 @@ services:
       args:
         PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?PUBLIC_WEB_URL is required}
         PUBLIC_API_BASE: ${PUBLIC_API_BASE:?PUBLIC_API_BASE is required}
+        SENTRY_DSN: ${SENTRY_DSN:-}
+        SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+        SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+        SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${WEB_LOCAL_PORT:-8092}:80"

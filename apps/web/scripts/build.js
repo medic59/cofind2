@@ -8,7 +8,7 @@ const dist = resolve(root, "dist");
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-for (const file of ["index.html", "styles.css", "app.js", "auth-boot.js", "auth-state.js", "route-guard.js", "favicon.svg", "og-image.png", "robots.txt", "_redirects"]) {
+for (const file of ["index.html", "styles.css", "app.js", "auth-boot.js", "auth-state.js", "route-guard.js", "sentry-init.js", "favicon.svg", "og-image.png", "robots.txt", "_redirects"]) {
   const source = resolve(root, file);
   try {
     await stat(source);
@@ -16,6 +16,14 @@ for (const file of ["index.html", "styles.css", "app.js", "auth-boot.js", "auth-
   } catch {
     // Optional static SEO files may be generated later.
   }
+}
+
+// Self-hosted vendor bundles (Sentry browser SDK) — served under 'self' so the
+// strict script-src CSP allows them.
+try {
+  await cp(resolve(root, "vendor"), resolve(dist, "vendor"), { recursive: true });
+} catch {
+  // vendor/ is optional
 }
 
 const publicWebUrl = originFrom(process.env.PUBLIC_WEB_URL || process.env.WEB_BASE || "http://localhost:3000");
@@ -94,7 +102,25 @@ async function rewriteIndex(webUrl, apiBase) {
     .replace(/<meta name="cofind-api-base" content="[^"]*" \/>/, `<meta name="cofind-api-base" content="${escapeAttr(apiBase)}" />`)
     .replace(/<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${escapeAttr(webUrl)}/" />`)
     .replace(/http:\/\/localhost:4000\/api\/v1/g, escapeHtml(apiBase));
+  html = injectSentry(html);
   await writeFile(indexPath, html);
+}
+
+// DSN-driven frontend Sentry: when SENTRY_DSN is set at build time, inject the
+// self-hosted SDK + config meta into <head> (inherited by all route pages). The
+// SDK and init are 'self' files so the strict script-src CSP allows them.
+function injectSentry(html) {
+  const dsn = process.env.SENTRY_DSN;
+  if (!dsn) return html;
+  const tags = [
+    `<meta name="cofind-sentry-dsn" content="${escapeAttr(dsn)}" />`,
+    `<meta name="cofind-sentry-release" content="${escapeAttr(process.env.SENTRY_RELEASE || "")}" />`,
+    `<meta name="cofind-sentry-environment" content="${escapeAttr(process.env.SENTRY_ENVIRONMENT || "production")}" />`,
+    `<meta name="cofind-sentry-traces-rate" content="${escapeAttr(process.env.SENTRY_TRACES_SAMPLE_RATE || "0")}" />`,
+    `<script src="/vendor/sentry.min.js"></script>`,
+    `<script src="/sentry-init.js"></script>`
+  ].join("\n    ");
+  return html.replace("</head>", `    ${tags}\n  </head>`);
 }
 
 async function rewriteApp(apiBase) {

@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Res } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../auth/public.decorator";
 import { ChatRealtimeService } from "../chat/chat-realtime.service";
@@ -27,12 +27,17 @@ export class HealthController {
     };
   }
 
+  // Readiness probe: 200 when DB, Meilisearch and the chat realtime component are
+  // all healthy, HTTP 503 otherwise so load balancers / uptime monitors detect
+  // it by status code (not just the body flag).
   @Get("ready")
-  async ready() {
+  async ready(@Res({ passthrough: true }) res: any) {
     const [database, meilisearch] = await Promise.all([this.databaseStatus(), this.meilisearchStatus()]);
     const realtime = this.realtime.status();
+    const ok = database.ok && meilisearch.ok && realtime.ok;
+    res.status(ok ? 200 : 503);
     return {
-      ok: database.ok && meilisearch.ok && realtime.ok,
+      ok,
       service: "cofind-api",
       dependencies: { database, meilisearch, realtime },
       timestamp: new Date().toISOString()

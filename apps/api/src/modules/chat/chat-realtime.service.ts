@@ -35,6 +35,15 @@ export class ChatRealtimeService implements OnModuleInit, OnModuleDestroy {
   private pub?: Redis;
   private sub?: Redis;
   private redisReady = false;
+  // Monotonic counters surfaced in status() for dashboards/alerts (WS error rate).
+  private readonly metrics = {
+    connections: 0,
+    disconnects: 0,
+    errorFrames: 0,
+    socketErrors: 0,
+    droppedBackpressure: 0,
+    rejectedOverload: 0
+  };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -99,7 +108,8 @@ export class ChatRealtimeService implements OnModuleInit, OnModuleDestroy {
       ok: Boolean(this.server),
       path: "/ws/chat",
       clients: this.server ? this.server.clients.size : 0,
-      redis: this.pub ? (this.redisReady ? "connected" : "disconnected") : "disabled"
+      redis: this.pub ? (this.redisReady ? "connected" : "disconnected") : "disabled",
+      metrics: { ...this.metrics }
     };
   }
 
@@ -120,6 +130,7 @@ export class ChatRealtimeService implements OnModuleInit, OnModuleDestroy {
     for (const client of this.server?.clients || []) {
       if (client.readyState !== WebSocket.OPEN) continue;
       if (client.bufferedAmount > MAX_BUFFERED_BYTES) {
+        this.metrics.droppedBackpressure += 1;
         (client as LiveSocket).terminate();
         continue;
       }
@@ -131,6 +142,7 @@ export class ChatRealtimeService implements OnModuleInit, OnModuleDestroy {
 
   private handleConnection(socket: LiveSocket, request: IncomingMessage) {
     if (this.server && this.server.clients.size > MAX_CONNECTIONS) {
+      this.metrics.rejectedOverload += 1;
       socket.close(1013, "Server overloaded");
       return;
     }
@@ -140,6 +152,9 @@ export class ChatRealtimeService implements OnModuleInit, OnModuleDestroy {
     socket.sendTimes = [];
     socket.userId = user?.id;
     socket.on("pong", () => { socket.isAlive = true; });
+    this.metrics.connections += 1;
+    socket.on("close", () => { this.metrics.disconnects += 1; });
+    socket.on("error", () => { this.metrics.socketErrors += 1; });
     socket.send(JSON.stringify({ type: "chat.ready", payload: { authenticated: Boolean(user) } }));
 
     socket.on("message", async (raw) => {
@@ -153,20 +168,30 @@ export class ChatRealtimeService implements OnModuleInit, OnModuleDestroy {
         if (message.type === "chat.message") {
           const messageUser = user || this.verifyToken(message.token);
           if (!messageUser) {
-            socket.send(JSON.stringify({ type: "chat.error", payload: { message: "Authentication required", code: "AUTH_REQUIRED" } }));
+            this.sendError(socket, "Authentication required", "AUTH_REQUIRED");
             return;
           }
           if (!this.allowSend(socket)) {
-            socket.send(JSON.stringify({ type: "chat.error", payload: { message: "Слишком много сообщений, подождите немного", code: "RATE_LIMITED" } }));
+            this.sendError(socket, "Слишком много сообщений, подождите немного", "RATE_LIMITED");
             return;
           }
           const created = await this.createGlobalMessage(messageUser.id, message.text, message.quotedGlobalMessageId, message.drawingUrl, message.room);
           this.broadcast("chat.message.created", created);
         }
       } catch (error) {
-        socket.send(JSON.stringify({ type: "chat.error", payload: { message: error instanceof Error ? error.message : "Invalid realtime payload" } }));
+        this.sendError(socket, error instanceof Error ? error.message : "Invalid realtime payload");
       }
     });
+  }
+
+  // Send a chat.error frame and count it (WS error-rate metric for alerting).
+  private sendError(socket: LiveSocket, message: string, code?: string) {
+    this.metrics.errorFrames += 1;
+    try {
+      socket.send(JSON.stringify({ type: "chat.error", payload: { message, ...(code ? { code } : {}) } }));
+    } catch {
+      /* socket closing */
+    }
   }
 
   // Per-connection sliding-window flood control.
