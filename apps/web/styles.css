@@ -3279,7 +3279,8 @@ body.theme-writer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   padding: 16px 20px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
@@ -3294,7 +3295,9 @@ body.theme-writer {
 
 .listing-ssr-nav {
   display: flex;
-  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
 }
 
 .listing-ssr-nav a {

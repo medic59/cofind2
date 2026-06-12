@@ -1,3 +1,4 @@
+import { pluralize } from "../../common/pluralize";
 import { documentShell, renderFeedCards } from "../listings/listing-page.renderer";
 
 function escapeHtml(value: unknown) {
@@ -32,15 +33,6 @@ function chips(label: string, items: string[]) {
     .join("")}</div>`;
 }
 
-function pluralRu(count: number, forms: [string, string, string]) {
-  const n = Math.abs(count) % 100;
-  const n1 = n % 10;
-  if (n > 10 && n < 20) return forms[2];
-  if (n1 > 1 && n1 < 5) return forms[1];
-  if (n1 === 1) return forms[0];
-  return forms[2];
-}
-
 const FIELD_LABELS: Array<[string, string]> = [
   ["writingStyle", "Стиль"],
   ["literacyLevel", "Грамотность"],
@@ -59,7 +51,7 @@ export function renderProfilePage(profile: any, webUrl: string, username: string
   const totalLikes = Number(stats.likes ?? 0);
   const totalResponses = Number(stats.responses ?? 0);
   const listings = Array.isArray(profile.user?.listings) ? profile.user.listings : [];
-  const description = clip(profile.bio || `Публичный профиль ${displayName} на Cofind 2: ${totalListings} ${pluralRu(totalListings, ["заявка", "заявки", "заявок"])}, стиль, темп и творческие предпочтения.`, 180);
+  const description = clip(profile.bio || `Публичный профиль ${displayName} на Cofind 2: ${totalListings} ${pluralize(totalListings, ["заявка", "заявки", "заявок"])}, стиль, темп и творческие предпочтения.`, 180);
   const ogImage = absolute(profile.avatarUrl) || `${base}/og-image.png`;
   const socials = socialUrls(profile.socialLinks);
 
@@ -80,9 +72,9 @@ export function renderProfilePage(profile: any, webUrl: string, username: string
         <p class="listing-ssr-muted">@${escapeHtml(handle)}</p>
         ${profile.bio ? `<p>${escapeHtml(profile.bio)}</p>` : ""}
         <div class="listing-ssr-meta">
-          <span><strong>${escapeHtml(totalListings)}</strong> ${escapeHtml(pluralRu(totalListings, ["заявка", "заявки", "заявок"]))}</span>
-          <span><strong>${escapeHtml(totalLikes)}</strong> ${escapeHtml(pluralRu(totalLikes, ["лайк", "лайка", "лайков"]))}</span>
-          <span><strong>${escapeHtml(totalResponses)}</strong> ${escapeHtml(pluralRu(totalResponses, ["отклик", "отклика", "откликов"]))}</span>
+          <span><strong>${escapeHtml(totalListings)}</strong> ${escapeHtml(pluralize(totalListings, ["заявка", "заявки", "заявок"]))}</span>
+          <span><strong>${escapeHtml(totalLikes)}</strong> ${escapeHtml(pluralize(totalLikes, ["лайк", "лайка", "лайков"]))}</span>
+          <span><strong>${escapeHtml(totalResponses)}</strong> ${escapeHtml(pluralize(totalResponses, ["отклик", "отклика", "откликов"]))}</span>
         </div>
         ${fields ? `<section class="listing-ssr-section"><h2>Формат</h2><ul class="listing-ssr-expectations">${fields}</ul></section>` : ""}
         ${chips("Жанры", profile.favoriteGenres)}

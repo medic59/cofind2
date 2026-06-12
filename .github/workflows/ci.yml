@@ -22,7 +22,9 @@ jobs:
       - name: Typecheck + build (turbo)
         run: pnpm run build
       - name: Unit tests
-        run: pnpm --filter @cofind/web test:auth-state
+        run: |
+          pnpm --filter @cofind/web test:auth-state
+          pnpm run test:unit
 
   # Bring up the full stack, then run API regression + SEO smoke + Playwright e2e.
   test:

@@ -84,12 +84,29 @@ async function main() {
     check("/profile/<username> canonical carries username", canonical((await getText(`/profile/${username}`)).html)?.endsWith(`/profile/${username}`));
   }
 
-  // Sitemap: <loc> URLs must have no query params, and listings must be present.
-  const sm = await getText("/sitemap.xml");
-  const locs = [...sm.html.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
-  check("sitemap 200", sm.status === 200);
+  // Sitemap: <loc> URLs must have no query params; listings + fandoms present;
+  // every <lastmod> a valid ISO timestamp. If the root is a sitemap index, pull
+  // the per-type sub-sitemaps and assert over their combined entries.
+  const root = await getText("/sitemap.xml");
+  check("sitemap 200", root.status === 200);
+  let sitemapXml = root.html;
+  if (/<sitemapindex/i.test(root.html)) {
+    const childPaths = [...root.html.matchAll(/<loc>([^<]*)<\/loc>/g)]
+      .map((m) => m[1].replace(/^https?:\/\/[^/]+/, ""));
+    const children = await Promise.all(childPaths.map((p) => getText(p)));
+    sitemapXml = children.map((c) => c.html).join("\n");
+  }
+  const locs = [...sitemapXml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
+  const lastmods = [...sitemapXml.matchAll(/<lastmod>([^<]*)<\/lastmod>/g)].map((m) => m[1]);
   check("sitemap <loc> URLs have no query parameters", locs.length > 0 && locs.every((loc) => !loc.includes("?")), locs.find((loc) => loc.includes("?")) || "");
-  check("sitemap includes listing URLs", locs.some((loc) => loc.includes("/listings/")));
+  check("sitemap includes at least one listing URL", locs.some((loc) => loc.includes("/listings/")));
+  check("sitemap includes at least one fandom URL", locs.some((loc) => loc.includes("/fandoms/")));
+  check("sitemap has lastmod entries", lastmods.length > 0);
+  check(
+    "sitemap lastmod values are valid ISO timestamps",
+    lastmods.length > 0 && lastmods.every((v) => new Date(v).toISOString() === v),
+    lastmods.find((v) => new Date(v).toISOString() !== v) || ""
+  );
 
   if (failures > 0) {
     console.error(`\nseo smoke FAILED (${failures} check(s))`);

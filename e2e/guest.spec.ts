@@ -43,5 +43,8 @@ test.describe("guest", () => {
     // The promise on the page is that messages can be read without an account.
     // If this fails, it is a real bug (read-without-login is broken), not a flaky test.
     await expect(page.locator("#messages .message").first()).toBeVisible({ timeout: 15_000 });
+    // No <img> may render without a real source (the mini-canvas preview must not
+    // leave an empty <img> in the DOM).
+    await expect(page.locator('img[src=""], img:not([src])')).toHaveCount(0);
   });
 });

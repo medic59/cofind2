@@ -259,7 +259,14 @@ async function writeNotFound() {
   <body class="listing-ssr-page">
     <header class="listing-ssr-topbar">
       <a class="listing-ssr-brand" href="/">Cofind 2</a>
-      <nav class="listing-ssr-nav"><a href="/feed">Лента заявок</a><a href="/chat">Чат</a></nav>
+      <nav class="listing-ssr-nav" aria-label="Основная навигация">
+        <a href="/feed">Заявки</a>
+        <a href="/help">Как это работает</a>
+        <a href="/rules">Правила</a>
+        <a href="/chat">Чат</a>
+        <a class="ghost-button" href="/auth">Войти</a>
+        <a class="primary-button" href="/me/listings/new">Создать заявку</a>
+      </nav>
     </header>
     <main class="listing-ssr-main">
       <article class="listing-ssr-card listing-ssr-notfound">
@@ -272,6 +279,15 @@ async function writeNotFound() {
         </div>
       </article>
     </main>
+    <footer class="site-footer">
+      <nav class="footer-links" aria-label="Дополнительные ссылки">
+        <a href="/help">Как это работает</a>
+        <a href="/rules">Правила</a>
+        <a href="/privacy">Приватность</a>
+        <a href="/contacts">Контакты</a>
+      </nav>
+      <p class="footer-copy">© 2026 Cofind 2</p>
+    </footer>
   </body>
 </html>
 `;

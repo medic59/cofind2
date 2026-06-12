@@ -1,11 +1,16 @@
+import { plural, type PluralForms } from "../../common/pluralize";
 import { documentShell, renderFeedCards } from "../listings/listing-page.renderer";
 
 export type CatalogKind = "fandoms" | "genres" | "tags" | "characters";
+
+const LISTING_FORMS: PluralForms = ["заявка", "заявки", "заявок"];
 
 type KindMeta = {
   path: string;
   indexLabel: string;
   filterKey: "fandom" | "genre" | "tag" | "character";
+  // Plural forms for the entity noun itself ("5 фандомов в каталоге").
+  entityForms: PluralForms;
   titleTpl: (name: string) => string;
   descTpl: (name: string, count: number) => string;
   indexTitle: string;
@@ -17,8 +22,9 @@ const KIND_META: Record<CatalogKind, KindMeta> = {
     path: "/fandoms",
     indexLabel: "Фандомы",
     filterKey: "fandom",
+    entityForms: ["фандом", "фандома", "фандомов"],
     titleTpl: (name) => `Поиск соавтора и партнёра по фандому ${name} — Cofind 2`,
-    descTpl: (name, count) => `${count} заявок по фандому ${name} на Cofind 2: соавторы, соигроки, бета-ридеры и команды. Найдите партнёра для фанфика или ролевой по ${name}.`,
+    descTpl: (name, count) => `${plural(count, LISTING_FORMS)} по фандому ${name} на Cofind 2: соавторы, соигроки, бета-ридеры и команды. Найдите партнёра для фанфика или ролевой по ${name}.`,
     indexTitle: "Фандомы — Cofind 2",
     indexDesc: "Каталог фандомов Cofind 2: найдите соавтора, соигрока и команду по любимому фандому."
   },
@@ -26,8 +32,9 @@ const KIND_META: Record<CatalogKind, KindMeta> = {
     path: "/genres",
     indexLabel: "Жанры",
     filterKey: "genre",
+    entityForms: ["жанр", "жанра", "жанров"],
     titleTpl: (name) => `Заявки и партнёры в жанре ${name} — Cofind 2`,
-    descTpl: (name, count) => `${count} творческих заявок в жанре ${name} на Cofind 2: соавторство, ролевые, бета-ридинг и команды.`,
+    descTpl: (name, count) => `${plural(count, LISTING_FORMS)} в жанре ${name} на Cofind 2: соавторство, ролевые, бета-ридинг и команды.`,
     indexTitle: "Жанры — Cofind 2",
     indexDesc: "Каталог жанров Cofind 2: найдите партнёров и заявки в нужном жанре."
   },
@@ -35,8 +42,9 @@ const KIND_META: Record<CatalogKind, KindMeta> = {
     path: "/tags",
     indexLabel: "Теги",
     filterKey: "tag",
+    entityForms: ["тег", "тега", "тегов"],
     titleTpl: (name) => `Заявки по тегу ${name} — Cofind 2`,
-    descTpl: (name, count) => `${count} творческих заявок по тегу ${name} на Cofind 2: соавторы, соигроки и команды.`,
+    descTpl: (name, count) => `${plural(count, LISTING_FORMS)} по тегу ${name} на Cofind 2: соавторы, соигроки и команды.`,
     indexTitle: "Теги — Cofind 2",
     indexDesc: "Каталог тегов Cofind 2: заявки и творческие партнёры по темам."
   },
@@ -44,8 +52,9 @@ const KIND_META: Record<CatalogKind, KindMeta> = {
     path: "/characters",
     indexLabel: "Персонажи",
     filterKey: "character",
+    entityForms: ["персонаж", "персонажа", "персонажей"],
     titleTpl: (name) => `Ролевые и фанфики по персонажу ${name} — Cofind 2`,
-    descTpl: (name, count) => `${count} заявок по персонажу ${name} на Cofind 2: соигроки, соавторы и команды.`,
+    descTpl: (name, count) => `${plural(count, LISTING_FORMS)} по персонажу ${name} на Cofind 2: соигроки, соавторы и команды.`,
     indexTitle: "Персонажи — Cofind 2",
     indexDesc: "Каталог персонажей Cofind 2: найдите партнёров по любимым персонажам."
   }
@@ -104,7 +113,7 @@ export function renderCatalogIndex(kind: CatalogKind, entities: Array<{ slug: st
       <article class="listing-ssr-card">
         <h1 class="listing-ssr-title">${escapeHtml(meta.indexLabel)}</h1>
         <p>${escapeHtml(meta.indexDesc)}</p>
-        <p class="listing-ssr-muted">${entities.length} в каталоге</p>
+        <p class="listing-ssr-muted">${plural(entities.length, meta.entityForms)} в каталоге</p>
         ${chips(kind, entities)}
         <div class="listing-ssr-actions">
           <a class="ghost-button" href="/feed">Открыть ленту заявок</a>
@@ -158,7 +167,7 @@ export function renderCatalogDetail(options: {
 
   const listingsBlock = listings.length
     ? `<div class="listing-list">${renderFeedCards(listings)}</div>
-       <div class="listing-ssr-actions"><a class="primary-button" href="${escapeHtml(feedUrl)}">Открыть все ${total} в ленте с фильтрами</a></div>`
+       <div class="listing-ssr-actions"><a class="primary-button" href="${escapeHtml(feedUrl)}">Открыть все ${plural(total, LISTING_FORMS)} в ленте с фильтрами</a></div>`
     : `<p class="listing-ssr-muted">Пока нет опубликованных заявок. Создайте первую — по ${escapeHtml(name)} быстро находят партнёров.</p>
        <div class="listing-ssr-actions"><a class="primary-button" href="/me/listings/new">Создать заявку</a></div>`;
 

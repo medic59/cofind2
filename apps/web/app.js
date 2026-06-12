@@ -1770,12 +1770,18 @@ function renderFeedPagination(totalPages) {
   `;
 }
 
-function plural(number, forms) {
+// Russian pluralization. forms = [one, few, many]; correctly handles the 11-14
+// exception. Mirror of apps/api/src/common/pluralize.ts (kept in sync by hand).
+function pluralize(number, forms) {
   const mod10 = number % 10;
   const mod100 = number % 100;
   if (mod10 === 1 && mod100 !== 11) return forms[0];
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
   return forms[2];
+}
+function plural(number, forms) {
+  // Backwards-compatible alias for existing call sites (hoisted, like pluralize).
+  return pluralize(number, forms);
 }
 
 function timeAgo(dateValue) {
@@ -3670,7 +3676,7 @@ function renderMyListings(items = []) {
   if (countNote) {
     const totalInFilter = activeMyListingsFilter === "all" ? items.length : items.filter((item) => item.status === activeMyListingsFilter).length;
     countNote.textContent = search
-      ? `Найдено ${visibleItems.length} из ${totalInFilter} ${plural(totalInFilter, ["заявки", "заявок", "заявок"])} в текущем фильтре.`
+      ? `Найдено ${visibleItems.length} из ${totalInFilter} ${plural(totalInFilter, ["заявка", "заявки", "заявок"])} в текущем фильтре.`
       : `${totalInFilter} ${plural(totalInFilter, ["заявка", "заявки", "заявок"])} в текущем фильтре.`;
   }
   box.innerHTML = visibleItems.length

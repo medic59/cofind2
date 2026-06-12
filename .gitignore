@@ -16,3 +16,6 @@ apps/api/uploads
 *.out.log
 *.err.log
 !deploy/.env.production.cofind2.example
+.pnpm-store/
+test-results/
+playwright-report/

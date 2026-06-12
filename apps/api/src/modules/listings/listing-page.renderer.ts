@@ -1,3 +1,4 @@
+import { pluralize } from "../../common/pluralize";
 import { sanitizeRichText, stripRichText } from "../../common/rich-text";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -69,15 +70,6 @@ function expectations(meta: any): string[] {
   ].filter((value): value is string => Boolean(value));
 }
 
-function pluralRu(count: number, forms: [string, string, string]) {
-  const n = Math.abs(count) % 100;
-  const n1 = n % 10;
-  if (n > 10 && n < 20) return forms[2];
-  if (n1 > 1 && n1 < 5) return forms[1];
-  if (n1 === 1) return forms[0];
-  return forms[2];
-}
-
 export function documentShell(options: {
   title: string;
   description: string;
@@ -115,9 +107,13 @@ export function documentShell(options: {
   <body class="listing-ssr-page">
     <header class="listing-ssr-topbar">
       <a class="listing-ssr-brand" href="/">Cofind 2</a>
-      <nav class="listing-ssr-nav">
-        <a href="/feed">Лента заявок</a>
+      <nav class="listing-ssr-nav" aria-label="Основная навигация">
+        <a href="/feed">Заявки</a>
+        <a href="/help">Как это работает</a>
+        <a href="/rules">Правила</a>
         <a href="/chat">Чат</a>
+        <a class="ghost-button" href="/auth">Войти</a>
+        <a class="primary-button" href="/me/listings/new">Создать заявку</a>
       </nav>
     </header>
     <main class="listing-ssr-main" id="main-content">
@@ -221,8 +217,8 @@ export function renderListingPage(listing: any, webUrl: string, slug: string) {
           <span class="pill">${escapeHtml(typeLabel(listing.type))}</span>
           <span class="pill soft">${escapeHtml(ratingLabel(listing.ageRating))}</span>
           <span>Автор: ${authorNameHtml}</span>
-          <span>${escapeHtml(responses)} ${escapeHtml(pluralRu(responses, ["отклик", "отклика", "откликов"]))}</span>
-          <span>${escapeHtml(likes)} ${escapeHtml(pluralRu(likes, ["лайк", "лайка", "лайков"]))}</span>
+          <span>${escapeHtml(responses)} ${escapeHtml(pluralize(responses, ["отклик", "отклика", "откликов"]))}</span>
+          <span>${escapeHtml(likes)} ${escapeHtml(pluralize(likes, ["лайк", "лайка", "лайков"]))}</span>
         </div>
         <div class="listing-ssr-body rich-content">${bodyHtml || "<p>Описание появится позже.</p>"}</div>
         ${taxonomyBlock("Теги", tags)}
@@ -289,11 +285,11 @@ function updatedAgo(listing: any) {
   const diff = Date.now() - new Date(value).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "только что";
-  if (mins < 60) return `${mins} ${pluralRu(mins, ["минуту", "минуты", "минут"])} назад`;
+  if (mins < 60) return `${mins} ${pluralize(mins, ["минуту", "минуты", "минут"])} назад`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} ${pluralRu(hours, ["час", "часа", "часов"])} назад`;
+  if (hours < 24) return `${hours} ${pluralize(hours, ["час", "часа", "часов"])} назад`;
   const days = Math.floor(hours / 24);
-  return `${days} ${pluralRu(days, ["день", "дня", "дней"])} назад`;
+  return `${days} ${pluralize(days, ["день", "дня", "дней"])} назад`;
 }
 
 function feedTaxonomy(label: string, items: string[]) {
@@ -333,13 +329,13 @@ export function renderFeedCard(listing: any) {
       <p>${escapeHtml(summary)}</p>
       <div class="listing-card-meta">
         <span>Автор: ${authorHtml}</span>
-        <span>${escapeHtml(responses)} ${escapeHtml(pluralRu(responses, ["отклик", "отклика", "откликов"]))}</span>
+        <span>${escapeHtml(responses)} ${escapeHtml(pluralize(responses, ["отклик", "отклика", "откликов"]))}</span>
       </div>
       ${feedTaxonomy("Жанры", genres)}
       ${feedTaxonomy("Фандомы", fandoms)}
       ${feedTaxonomy("Персонажи", characters)}
       <footer>
-        <span>${escapeHtml(likes)} ${escapeHtml(pluralRu(likes, ["лайк", "лайка", "лайков"]))}</span>
+        <span>${escapeHtml(likes)} ${escapeHtml(pluralize(likes, ["лайк", "лайка", "лайков"]))}</span>
         <div class="button-row listing-card-actions">
           <a class="secondary-button" href="${escapeHtml(href)}" data-open-listing="${escapeHtml(listing.id)}">${isOpen ? "Откликнуться" : "Подробнее"}</a>
         </div>
