@@ -9,5 +9,8 @@
     "smoke": "node scripts/smoke.js",
     "test:auth-state": "node scripts/auth-state.test.js",
     "seo:smoke": "node scripts/seo-smoke.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
   }
 }

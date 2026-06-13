@@ -1,9 +1,14 @@
-import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { transform } from "esbuild";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = resolve(root, "dist");
+
+// Assets that get content-hashed into their ?v= for long-immutable caching.
+const HASHED_ASSETS = ["app.js", "styles.css", "auth-boot.js", "auth-state.js", "route-guard.js", "sentry-init.js", "vendor/sentry.min.js"];
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
@@ -85,9 +90,11 @@ function seoForRoute(route) {
 
 await rewriteIndex(publicWebUrl, publicApiBase);
 await rewriteApp(publicApiBase);
+await minifyAssets();
 await writeRoutePages(publicWebUrl);
 await writeRobots(publicWebUrl);
 await writeNotFound();
+await hashAssets();
 
 console.log("Built apps/web/dist");
 
@@ -118,8 +125,8 @@ function injectSentry(html) {
     `<meta name="cofind-sentry-release" content="${escapeAttr(process.env.SENTRY_RELEASE || "")}" />`,
     `<meta name="cofind-sentry-environment" content="${escapeAttr(process.env.SENTRY_ENVIRONMENT || "production")}" />`,
     `<meta name="cofind-sentry-traces-rate" content="${escapeAttr(process.env.SENTRY_TRACES_SAMPLE_RATE || "0")}" />`,
-    `<script src="/vendor/sentry.min.js"></script>`,
-    `<script src="/sentry-init.js"></script>`
+    `<script defer src="/vendor/sentry.min.js"></script>`,
+    `<script defer src="/sentry-init.js"></script>`
   ].join("\n    ");
   return html.replace("</head>", `    ${tags}\n  </head>`);
 }
@@ -319,6 +326,58 @@ async function writeNotFound() {
 </html>
 `;
   await writeFile(resolve(dist, "404.html"), page);
+}
+
+// --- Performance: minify JS/CSS, then content-hash asset URLs for long caching ---
+
+async function minifyAssets() {
+  for (const file of ["app.js", "auth-boot.js", "auth-state.js", "route-guard.js", "sentry-init.js"]) {
+    await minifyFile(file, "js");
+  }
+  await minifyFile("styles.css", "css");
+}
+
+async function minifyFile(file, loader) {
+  const path = resolve(dist, file);
+  let code;
+  try {
+    code = await readFile(path, "utf8");
+  } catch {
+    return; // optional file not present in this build
+  }
+  const result = await transform(code, { loader, minify: true, legalComments: "none" });
+  await writeFile(path, result.code);
+}
+
+// Append a content hash to each asset's ?v= in every generated HTML, so files can
+// be cached immutably for a year and a content change busts the URL automatically.
+async function hashAssets() {
+  const hashes = {};
+  for (const asset of HASHED_ASSETS) {
+    try {
+      hashes[asset] = createHash("sha256").update(await readFile(resolve(dist, asset))).digest("hex").slice(0, 10);
+    } catch {
+      // asset absent (e.g. vendor only present when Sentry is enabled)
+    }
+  }
+  for (const file of await collectHtml(dist)) {
+    let html = await readFile(file, "utf8");
+    for (const [asset, hash] of Object.entries(hashes)) {
+      const escaped = asset.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      html = html.replace(new RegExp(`"/${escaped}(\\?v=[^"]*)?"`, "g"), `"/${asset}?v=${hash}"`);
+    }
+    await writeFile(file, html);
+  }
+}
+
+async function collectHtml(dir) {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...(await collectHtml(full)));
+    else if (entry.name.endsWith(".html")) out.push(full);
+  }
+  return out;
 }
 
 function originFrom(value) {
