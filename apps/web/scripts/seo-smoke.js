@@ -160,6 +160,17 @@ async function main() {
   const fandomsIndexLd = jsonLdObjects((await getText("/fandoms")).html);
   check("catalog index JSON-LD has CollectionPage", Boolean(ldType(fandomsIndexLd, "CollectionPage")));
 
+  // /feed first page is server-rendered (cards visible to crawlers), and filter
+  // variants canonicalize to the clean /feed (only the base page is indexed).
+  const feedHtml = (await getText("/feed")).html;
+  check("/feed has server-rendered listing cards", /feed-listing-card/.test(feedHtml) && /href="\/listings\//.test(feedHtml));
+  const feedFandom = locs.find((l) => /\/fandoms\/[^/]+$/.test(l));
+  if (feedFandom) {
+    const fslug = feedFandom.split("/fandoms/")[1];
+    const filtered = await getText(`/feed?fandom=${fslug}`);
+    check("/feed?fandom=… canonical points to clean /feed", canonical(filtered.html) === `${BASE}/feed`, `canonical=${canonical(filtered.html)}`);
+  }
+
   if (failures > 0) {
     console.error(`\nseo smoke FAILED (${failures} check(s))`);
     process.exit(1);
