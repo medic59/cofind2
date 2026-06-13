@@ -5,6 +5,7 @@ import { AuthGuard } from "../auth/auth.guard";
 import { CurrentUser, RequestUser } from "../auth/current-user.decorator";
 import { Public } from "../auth/public.decorator";
 import { toPublicCatalogItem } from "../../common/public-view";
+import { getCatalogOgPng } from "../listings/og-image";
 import { ListingsService } from "../listings/listings.service";
 import { CatalogService } from "./catalog.service";
 import { CatalogKind, isCatalogKind, renderCatalogDetail, renderCatalogIndex, renderCatalogNotFound } from "./catalog-page.renderer";
@@ -62,6 +63,28 @@ export class CatalogController {
     const total = Array.isArray(result) ? items.length : (result.total ?? items.length);
     const siblings = await this.catalog.siblings(kind, entity.slug);
     res.status(200).type("html").send(renderCatalogDetail({ kind, entity, listings: items, total, siblings, webUrl }));
+  }
+
+  // Dynamic 1200x630 OG card for a catalog entity (served at
+  // /(fandoms|genres|tags)/<slug>/og.png via nginx). Brand-image fallback.
+  @Public()
+  @ApiExcludeEndpoint()
+  @Get("catalog/:kind/:slug/og.png")
+  async catalogOg(@Param("kind") kind: string, @Param("slug") slug: string, @Res() res: any) {
+    try {
+      if (!isCatalogKind(kind)) throw new Error("unknown kind");
+      const entity = await this.catalog.entityBySlug(kind, slug);
+      if (!entity) throw new Error("not found");
+      const result: any = await this.listings.list({ [FILTER_KEY[kind]]: entity.slug, pageSize: 1 } as any);
+      const total = Array.isArray(result) ? result.length : (result.total ?? 0);
+      const png = await getCatalogOgPng(kind, entity.slug, entity.name, total);
+      res.status(200);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(png);
+    } catch {
+      res.redirect(302, `${publicWebUrl()}/og-image.png`);
+    }
   }
 
   @Public()

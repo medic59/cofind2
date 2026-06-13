@@ -52,7 +52,7 @@ export function renderProfilePage(profile: any, webUrl: string, username: string
   const totalResponses = Number(stats.responses ?? 0);
   const listings = Array.isArray(profile.user?.listings) ? profile.user.listings : [];
   const description = clip(profile.bio || `Публичный профиль ${displayName} на Cofind 2: ${totalListings} ${pluralize(totalListings, ["заявка", "заявки", "заявок"])}, стиль, темп и творческие предпочтения.`, 180);
-  const ogImage = absolute(profile.avatarUrl) || `${base}/og-image.png`;
+  const ogImage = `${base}/profile/${encodeURIComponent(handle)}/og.png`;
   const socials = socialUrls(profile.socialLinks);
 
   const fields = FIELD_LABELS
@@ -111,6 +111,8 @@ export function renderProfilePage(profile: any, webUrl: string, username: string
     canonical,
     robots: "index,follow",
     ogImage,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     jsonLd,
     body
   });

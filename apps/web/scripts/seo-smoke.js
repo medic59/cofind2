@@ -103,12 +103,14 @@ async function main() {
     check("/profile/<username> canonical carries username", canonical((await getText(`/profile/${username}`)).html)?.endsWith(`/profile/${username}`));
   }
 
-  // The listing's dynamic OG card must resolve to a real image.
-  if (slug) {
-    const ogRes = await fetch(`${BASE}/listings/${slug}/og.png`);
-    const ct = ogRes.headers.get("content-type") || "";
-    check("listing og.png returns an image", ogRes.status === 200 && /^image\//.test(ct), `status=${ogRes.status} ct=${ct}`);
+  // Dynamic OG cards (listing / profile / catalog) must resolve to real images.
+  async function checkOgImage(label, path) {
+    const res = await fetch(`${BASE}${path}`);
+    const ct = res.headers.get("content-type") || "";
+    check(`${label} og.png returns an image`, res.status === 200 && /^image\//.test(ct), `status=${res.status} ct=${ct}`);
   }
+  if (slug) await checkOgImage("listing", `/listings/${slug}/og.png`);
+  if (username) await checkOgImage("profile", `/profile/${username}/og.png`);
 
   // Sitemap: <loc> URLs must have no query params; listings + fandoms present;
   // every <lastmod> a valid ISO timestamp. If the root is a sitemap index, pull
@@ -153,9 +155,11 @@ async function main() {
   }
   const fandomLoc = locs.find((l) => /\/fandoms\/[^/]+$/.test(l));
   if (fandomLoc) {
-    const ld = jsonLdObjects((await getText(fandomLoc.replace(/^https?:\/\/[^/]+/, ""))).html);
+    const fandomPath = fandomLoc.replace(/^https?:\/\/[^/]+/, "");
+    const ld = jsonLdObjects((await getText(fandomPath)).html);
     const crumbs = ldType(ld, "BreadcrumbList");
     check("catalog detail JSON-LD BreadcrumbList has trail", Array.isArray(crumbs?.itemListElement) && crumbs.itemListElement.length >= 2);
+    await checkOgImage("catalog", `${fandomPath}/og.png`);
   }
   const fandomsIndexLd = jsonLdObjects((await getText("/fandoms")).html);
   check("catalog index JSON-LD has CollectionPage", Boolean(ldType(fandomsIndexLd, "CollectionPage")));

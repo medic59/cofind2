@@ -191,7 +191,9 @@ export function renderCatalogDetail(options: {
     description,
     canonical,
     robots: "index,follow",
-    ogImage: `${base}/og-image.png`,
+    ogImage: `${base}${meta.path}/${encodeURIComponent(entity.slug)}/og.png`,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     jsonLd: breadcrumbJsonLd(base, [
       { name: "Главная", url: "/" },
       { name: meta.indexLabel, url: meta.path },

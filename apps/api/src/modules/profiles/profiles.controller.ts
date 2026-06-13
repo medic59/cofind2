@@ -2,6 +2,7 @@ import { Controller, Get, NotFoundException, Param, Query, Res } from "@nestjs/c
 import { ApiExcludeEndpoint, ApiTags } from "@nestjs/swagger";
 import { toPublicProfile } from "../../common/public-view";
 import { Public } from "../auth/public.decorator";
+import { getProfileOgPng } from "../listings/og-image";
 import { PublicProfileQueryDto } from "./dto";
 import { renderProfileNotFound, renderProfilePage } from "./profile-page.renderer";
 import { ProfilesService } from "./profiles.service";
@@ -32,6 +33,23 @@ export class ProfilesController {
         return;
       }
       throw error;
+    }
+  }
+
+  // Dynamic 1200x630 OG card for the profile (served at /profile/<username>/og.png
+  // via nginx). Falls back to the brand image on any error.
+  @ApiExcludeEndpoint()
+  @Get(":username/og.png")
+  async og(@Param("username") username: string, @Res() res: any) {
+    try {
+      const profile = toPublicProfile(await this.profiles.publicProfile(username));
+      const png = await getProfileOgPng(profile);
+      res.status(200);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(png);
+    } catch {
+      res.redirect(302, `${publicWebUrl()}/og-image.png`);
     }
   }
 
