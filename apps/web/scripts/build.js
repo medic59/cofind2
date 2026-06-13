@@ -314,6 +314,12 @@ async function writeNotFound() {
       </article>
     </main>
     <footer class="site-footer">
+      <nav class="footer-links" aria-label="Каталог">
+        <a href="/feed">Лента заявок</a>
+        <a href="/fandoms">Фандомы</a>
+        <a href="/genres">Жанры</a>
+        <a href="/tags">Теги</a>
+      </nav>
       <nav class="footer-links" aria-label="Дополнительные ссылки">
         <a href="/help">Как это работает</a>
         <a href="/rules">Правила</a>

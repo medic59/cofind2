@@ -164,6 +164,11 @@ async function main() {
   const fandomsIndexLd = jsonLdObjects((await getText("/fandoms")).html);
   check("catalog index JSON-LD has CollectionPage", Boolean(ldType(fandomsIndexLd, "CollectionPage")));
 
+  // Internal linking: the home page links to the catalog hubs (crawl depth).
+  const homeHtml = (await getText("/")).html;
+  check("home links to catalog hubs (/fandoms, /genres, /tags)",
+    /href="\/fandoms"/.test(homeHtml) && /href="\/genres"/.test(homeHtml) && /href="\/tags"/.test(homeHtml));
+
   // /feed first page is server-rendered (cards visible to crawlers), and filter
   // variants canonicalize to the clean /feed (only the base page is indexed).
   const feedHtml = (await getText("/feed")).html;
