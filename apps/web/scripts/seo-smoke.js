@@ -46,6 +46,25 @@ async function discover() {
   return { slug: hit.slug, username: hit.author?.username };
 }
 
+// Extract and parse every JSON-LD block on a page, flattening @graph. An invalid
+// block is surfaced as { __invalid: true } so the smoke can fail on bad JSON.
+function jsonLdObjects(html) {
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)];
+  const objs = [];
+  for (const m of blocks) {
+    try {
+      const parsed = JSON.parse(m[1].replace(/\\u003c/g, "<"));
+      for (const o of parsed["@graph"] ? parsed["@graph"] : [parsed]) objs.push(o);
+    } catch {
+      objs.push({ __invalid: true });
+    }
+  }
+  return objs;
+}
+function ldType(objs, type) {
+  return objs.find((o) => o && o["@type"] === type) || null;
+}
+
 async function main() {
   console.log(`SEO smoke against ${BASE}\n`);
   const { slug, username } = await discover();
@@ -114,6 +133,32 @@ async function main() {
     lastmods.length > 0 && lastmods.every((v) => new Date(v).toISOString() === v),
     lastmods.find((v) => new Date(v).toISOString() !== v) || ""
   );
+
+  // JSON-LD structured data (automated stand-in for Google's Rich Results Test):
+  // parse each page type's JSON-LD and assert the expected type + key fields.
+  const home = jsonLdObjects((await getText("/")).html);
+  check("home JSON-LD has no parse errors", !home.some((o) => o.__invalid));
+  const homeSite = ldType(home, "WebSite");
+  check("home JSON-LD WebSite + SearchAction", Boolean(homeSite) && homeSite.potentialAction?.["@type"] === "SearchAction");
+
+  if (slug) {
+    const ld = jsonLdObjects((await getText(`/listings/${slug}`)).html);
+    const work = ld.find((o) => o["@type"] === "CreativeWork");
+    check("listing JSON-LD CreativeWork has name + url", Boolean(work && work.name && work.url));
+  }
+  if (username) {
+    const ld = jsonLdObjects((await getText(`/profile/${username}`)).html);
+    const person = ldType(ld, "Person");
+    check("profile JSON-LD Person has name + url", Boolean(person && person.name && person.url));
+  }
+  const fandomLoc = locs.find((l) => /\/fandoms\/[^/]+$/.test(l));
+  if (fandomLoc) {
+    const ld = jsonLdObjects((await getText(fandomLoc.replace(/^https?:\/\/[^/]+/, ""))).html);
+    const crumbs = ldType(ld, "BreadcrumbList");
+    check("catalog detail JSON-LD BreadcrumbList has trail", Array.isArray(crumbs?.itemListElement) && crumbs.itemListElement.length >= 2);
+  }
+  const fandomsIndexLd = jsonLdObjects((await getText("/fandoms")).html);
+  check("catalog index JSON-LD has CollectionPage", Boolean(ldType(fandomsIndexLd, "CollectionPage")));
 
   if (failures > 0) {
     console.error(`\nseo smoke FAILED (${failures} check(s))`);
