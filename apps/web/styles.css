@@ -3627,3 +3627,33 @@ html[data-auth-state="user"]:not(.auth-resolved) #auth-button * {
     grid-template-columns: 1fr 50px auto;
   }
 }
+
+/* Touch devices (phones/tablets): enlarge interactive controls to the 44px
+   tap-target standard. Scoped to coarse pointers so desktop is unaffected.
+   Inline text links inside sentences are intentionally left as-is (WCAG 2.5.5
+   exempts inline links). */
+@media (hover: none) and (pointer: coarse) {
+  .message-actions {
+    gap: 8px;
+  }
+  .message-actions button {
+    min-height: 44px;
+    padding: 9px 14px;
+  }
+  .listing-ssr-nav a,
+  .footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 4px 2px;
+  }
+  .listing-ssr-nav {
+    gap: 4px 18px;
+  }
+  /* Comfortable spacing between stacked tappable rows in the chat composer
+     toolbar so adjacent format buttons aren't mis-tapped. */
+  .rich-toolbar button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
