@@ -1330,39 +1330,44 @@ textarea {
 }
 
 .rich-editor {
+  line-height: 1.65;
+}
+
+/* TipTap renders its editable as a .ProseMirror element inside .rich-editor. */
+.rich-editor .ProseMirror {
   min-height: 130px;
   padding: 13px 14px;
   outline: 0;
-  line-height: 1.65;
-  overflow: hidden;
 }
 
-#listing-body-input + .rich-editor-shell .rich-editor {
+#listing-body-input + .rich-editor-shell .rich-editor .ProseMirror {
   min-height: 230px;
 }
 
-.rich-editor:empty::before,
-.rich-editor-shell.is-empty .rich-editor::before {
+/* Placeholder from @tiptap/extension-placeholder. */
+.rich-editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--muted);
   pointer-events: none;
+  float: left;
+  height: 0;
 }
 
-.rich-editor p {
+.rich-editor .ProseMirror p {
   margin: 0 0 0.75em;
 }
 
-.rich-editor p:last-child {
+.rich-editor .ProseMirror p:last-child {
   margin-bottom: 0;
 }
 
-.rich-editor ul,
-.rich-editor ol {
+.rich-editor .ProseMirror ul,
+.rich-editor .ProseMirror ol {
   margin: 0.3em 0 0.8em 1.35em;
   padding: 0;
 }
 
-.rich-editor blockquote {
+.rich-editor .ProseMirror blockquote {
   margin: 0.5em 0;
   padding: 8px 12px;
   border-left: 4px solid var(--accent);
@@ -1371,7 +1376,7 @@ textarea {
   color: var(--muted);
 }
 
-.rich-editor a {
+.rich-editor .ProseMirror a {
   color: var(--accent-2);
   text-decoration: underline;
 }

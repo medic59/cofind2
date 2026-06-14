@@ -22,13 +22,14 @@ test("register a new user then create a listing", async ({ page }) => {
   await page.goto("/me/listings/new");
   await page.selectOption("#listing-type", { index: 1 });
   await page.fill("#listing-title-input", `E2E заявка ${stamp} — ищу соавтора для теста`);
-  // The description field is a rich contenteditable editor that shadows the
-  // (hidden) #listing-body-input textarea; type into the editor surface, which
-  // syncs back to the textarea the submit handler reads.
-  const body = page.locator('[data-rich-editor-for="listing-body-input"] .rich-editor');
-  await expect(body).toBeVisible();
+  // The description is a TipTap editor (lazy-loaded) shadowing the hidden
+  // #listing-body-input textarea; it renders a .ProseMirror surface and syncs
+  // its HTML back to the textarea the submit handler reads. ProseMirror needs
+  // real keystrokes (pressSequentially), not fill().
+  const body = page.locator('[data-rich-editor-for="listing-body-input"] .ProseMirror');
+  await expect(body).toBeVisible({ timeout: 15_000 });
   await body.click();
-  await body.fill("Тестовое описание заявки для e2e: ищу партнёра, спокойный темп, согласованные границы.");
+  await body.pressSequentially("Тестовое описание заявки для e2e: ищу партнёра, спокойный темп, согласованные границы.");
   await page.click("#listing-submit");
   // On success the handler navigates back to /me; the error path only shows a
   // toast and stays on the form. So landing on /me is the reliable success

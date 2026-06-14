@@ -2126,11 +2126,11 @@ function autoGrowRichEditor(item) {
 
 function syncRichEditorFromTextarea(textareaId) {
   const item = richEditors.get(textareaId);
-  if (!item) return;
-  const nextHtml = richValueToEditorHtml(item.textarea.value);
-  if (item.editor.innerHTML !== nextHtml) item.editor.innerHTML = nextHtml;
-  updateRichEditorPlaceholder(item);
-  autoGrowRichEditor(item);
+  if (!item || !item.editor) return;
+  // setContent(html, emitUpdate=false): push the textarea value into the editor
+  // without firing onUpdate (avoids a sync loop). Used on draft restore / reset.
+  item.editor.commands.setContent(item.textarea.value || "", false);
+  updateEditorToolbarState(item);
 }
 
 function syncAllRichEditorsFromTextareas() {
@@ -2139,7 +2139,7 @@ function syncAllRichEditorsFromTextareas() {
 
 function focusRichEditor(textareaId) {
   const item = richEditors.get(textareaId);
-  if (item) item.editor.focus();
+  if (item?.editor) item.editor.commands.focus();
   else document.querySelector(`#${textareaId}`)?.focus();
 }
 
@@ -2168,7 +2168,9 @@ function updateRichEditorPlaceholder(item) {
 
 function updateRichEditorDisabled(textareaId) {
   const item = richEditors.get(textareaId);
-  if (item) updateRichEditorPlaceholder(item);
+  if (!item || !item.editor) return;
+  item.editor.setEditable(!item.textarea.disabled);
+  updateEditorToolbarState(item);
 }
 
 function richToolbarButton(command, label, content, extra = "") {
@@ -2388,96 +2390,158 @@ function openRichEmojiPicker(item) {
   item.emojiPicker.classList.toggle("is-hidden");
 }
 
+const EDITOR_BUNDLE_URL = "/vendor/editor.js";
+let editorBundlePromise = null;
+
+// Lazy-load the self-hosted TipTap bundle once (only on pages that have an editor).
+function ensureEditorBundle() {
+  if (window.CofindRichText) return Promise.resolve(window.CofindRichText);
+  if (editorBundlePromise) return editorBundlePromise;
+  editorBundlePromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = EDITOR_BUNDLE_URL;
+    script.onload = () => resolve(window.CofindRichText);
+    script.onerror = () => reject(new Error("rich-text editor bundle failed to load"));
+    document.head.append(script);
+  });
+  return editorBundlePromise;
+}
+
+const EDITOR_TOOLBAR = [
+  { command: "bold", label: "Жирный (Ctrl+B)", content: "<strong>B</strong>" },
+  { command: "italic", label: "Курсив (Ctrl+I)", content: "<em>I</em>" },
+  { command: "strike", label: "Зачёркнутый", content: '<span class="strike-icon">S</span>' },
+  { divider: true },
+  { command: "bulletList", label: "Маркированный список", content: "•" },
+  { command: "orderedList", label: "Нумерованный список", content: "1." },
+  { command: "blockquote", label: "Цитата", content: "❝" },
+  { command: "link", label: "Ссылка", content: "↗" },
+  { divider: true },
+  { command: "undo", label: "Отменить", content: "↶" },
+  { command: "redo", label: "Повторить", content: "↷" },
+  { command: "emoji", label: "Эмодзи", content: "☺" }
+];
+
+function buildEditorToolbarHtml() {
+  return EDITOR_TOOLBAR.map((entry) =>
+    entry.divider
+      ? '<span class="rich-divider" aria-hidden="true"></span>'
+      : `<button type="button" data-rich-command="${entry.command}" aria-label="${entry.label}" title="${entry.label}">${entry.content}</button>`
+  ).join("");
+}
+
+function runEditorCommand(item, command) {
+  const chain = () => item.editor.chain().focus();
+  switch (command) {
+    case "bold": chain().toggleBold().run(); break;
+    case "italic": chain().toggleItalic().run(); break;
+    case "strike": chain().toggleStrike().run(); break;
+    case "bulletList": chain().toggleBulletList().run(); break;
+    case "orderedList": chain().toggleOrderedList().run(); break;
+    case "blockquote": chain().toggleBlockquote().run(); break;
+    case "undo": chain().undo().run(); break;
+    case "redo": chain().redo().run(); break;
+    case "emoji": item.emojiPicker.classList.toggle("is-hidden"); break;
+    case "link": {
+      if (item.editor.isActive("link")) { chain().unsetLink().run(); break; }
+      const url = normalizeRichUrl(window.prompt("Ссылка (https://...)", "") || "");
+      if (url) chain().extendMarkRange("link").setLink({ href: url }).run();
+      break;
+    }
+    default: break;
+  }
+}
+
+function updateEditorToolbarState(item) {
+  if (!item.editor) return;
+  const disabled = item.textarea.disabled;
+  item.shell.classList.toggle("is-disabled", disabled);
+  item.toolbar.querySelectorAll("[data-rich-command]").forEach((btn) => {
+    btn.disabled = disabled;
+    const command = btn.dataset.richCommand;
+    if (["bold", "italic", "strike", "bulletList", "orderedList", "blockquote", "link"].includes(command)) {
+      btn.classList.toggle("is-active", item.editor.isActive(command));
+    }
+  });
+}
+
+function syncTextareaFromEditor(item) {
+  if (!item.editor) return;
+  const html = item.editor.getHTML();
+  const hasContent = item.editor.getText().trim().length > 0;
+  item.textarea.value = hasContent ? sanitizeRichHtml(html) : "";
+  item.textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function createRichEditor(textarea) {
-  if (!textarea || richEditors.has(textarea.id)) return;
+  if (!textarea || richEditors.has(textarea.id) || !window.CofindRichText) return;
   const toolbar = textarea.previousElementSibling?.matches?.(".rich-toolbar")
     ? textarea.previousElementSibling
     : [...document.querySelectorAll(".rich-toolbar")].find((element) => element.dataset.editorTarget === textarea.id);
   if (!toolbar) return;
+  const { Editor, StarterKit, Link, Placeholder } = window.CofindRichText;
+
   const shell = document.createElement("div");
   shell.className = "rich-editor-shell";
   shell.dataset.richEditorFor = textarea.id;
-  toolbar.innerHTML = richToolbarHtml();
+  toolbar.innerHTML = buildEditorToolbarHtml();
   toolbar.classList.add("rich-toolbar-native");
-  const editor = document.createElement("div");
-  editor.className = "rich-editor";
-  editor.contentEditable = "true";
-  editor.dataset.placeholder = textarea.placeholder || "Начните писать...";
-  editor.setAttribute("role", "textbox");
-  editor.setAttribute("aria-multiline", "true");
-  editor.innerHTML = richValueToEditorHtml(textarea.value);
+
+  const mount = document.createElement("div");
+  mount.className = "rich-editor";
+
   const emojiPicker = document.createElement("div");
   emojiPicker.className = "rich-emoji-picker is-hidden";
   emojiPicker.innerHTML = richEditorEmojis.map((emoji) => `<button type="button" data-rich-emoji="${emoji}" aria-label="Вставить ${emoji}">${emoji}</button>`).join("");
+
   textarea.classList.add("rich-source");
   textarea.setAttribute("aria-hidden", "true");
   textarea.tabIndex = -1;
   textarea.after(shell);
-  shell.append(toolbar, editor, emojiPicker);
-  const item = { textarea, toolbar, shell, editor, emojiPicker };
-  richEditors.set(textarea.id, item);
-  toolbar.addEventListener("mousedown", (event) => {
-    item.savedRange = saveRichSelection(item);
-    if (event.target.closest("button")) event.preventDefault();
+  shell.append(toolbar, mount, emojiPicker);
+
+  // item is declared before the editor so the synchronous initial transaction
+  // fired by `new Editor` finds a (partially populated) item via the closure.
+  const item = { textarea, toolbar, shell, emojiPicker, editor: null };
+  item.editor = new Editor({
+    element: mount,
+    editable: !textarea.disabled,
+    content: textarea.value || "",
+    extensions: [
+      StarterKit.configure({ heading: false, codeBlock: false, code: false, horizontalRule: false }),
+      Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" } }),
+      Placeholder.configure({ placeholder: textarea.placeholder || "Начните писать..." })
+    ],
+    onUpdate: () => { syncTextareaFromEditor(item); updateEditorToolbarState(item); },
+    onSelectionUpdate: () => updateEditorToolbarState(item)
   });
+  richEditors.set(textarea.id, item);
+
+  toolbar.addEventListener("mousedown", (event) => { if (event.target.closest("button")) event.preventDefault(); });
   toolbar.addEventListener("click", (event) => {
     const button = event.target.closest("[data-rich-command]");
-    if (!button) return;
-    const command = button.dataset.richCommand;
-    if (command === "emoji") openRichEmojiPicker(item);
-    else execRichCommand(item, command);
+    if (!button || button.disabled) return;
+    runEditorCommand(item, button.dataset.richCommand);
   });
   emojiPicker.addEventListener("mousedown", (event) => event.preventDefault());
   emojiPicker.addEventListener("click", (event) => {
     const button = event.target.closest("[data-rich-emoji]");
     if (!button) return;
-    restoreRichSelection(item);
-    document.execCommand("insertText", false, button.dataset.richEmoji);
-    item.emojiPicker.classList.add("is-hidden");
-    syncTextareaFromRichEditor(item.textarea, item.editor);
-    updateRichEditorPlaceholder(item);
-    item.savedRange = saveRichSelection(item);
+    item.editor.chain().focus().insertContent(button.dataset.richEmoji).run();
+    emojiPicker.classList.add("is-hidden");
   });
-  editor.addEventListener("input", () => {
-    syncTextareaFromRichEditor(textarea, editor);
-    updateRichEditorPlaceholder(item);
-    item.savedRange = saveRichSelection(item);
-  });
-  editor.addEventListener("blur", () => {
-    syncTextareaFromRichEditor(textarea, editor);
-    updateRichEditorPlaceholder(item);
-  });
-  editor.addEventListener("keyup", () => {
-    item.savedRange = saveRichSelection(item);
-    updateRichEditorPlaceholder(item);
-  });
-  editor.addEventListener("mouseup", () => {
-    item.savedRange = saveRichSelection(item);
-    updateRichEditorPlaceholder(item);
-  });
-  editor.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" || event.shiftKey) return;
-    const quote = currentRichBlockquote(item);
-    if (!quote || !richCaretAtEndOfNode(quote)) return;
-    event.preventDefault();
-    exitRichBlockquote(item, quote);
-  });
-  editor.addEventListener("paste", (event) => {
-    event.preventDefault();
-    const text = event.clipboardData?.getData("text/plain") || "";
-    document.execCommand("insertText", false, text);
-    syncTextareaFromRichEditor(textarea, editor);
-    updateRichEditorPlaceholder(item);
-  });
-  updateRichEditorPlaceholder(item);
+  updateEditorToolbarState(item);
 }
 
-function initializeRichEditors() {
-  richEditorIds.forEach((id) => createRichEditor(document.querySelector(`#${id}`)));
-  document.addEventListener("selectionchange", () => {
-    const active = [...richEditors.values()].find((item) => item.editor.contains(document.activeElement));
-    if (active) updateRichEditorPlaceholder(active);
-  });
+async function initializeRichEditors() {
+  const present = richEditorIds.map((id) => document.querySelector(`#${id}`)).filter(Boolean);
+  if (!present.length) return; // no editor on this page — don't load the bundle
+  try {
+    await ensureEditorBundle();
+  } catch {
+    return; // leave the plain textareas usable if the bundle fails to load
+  }
+  present.forEach(createRichEditor);
 }
 
 function toDatetimeLocal(value) {

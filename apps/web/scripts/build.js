@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promi
 import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { transform } from "esbuild";
+import { build, transform } from "esbuild";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = resolve(root, "dist");
@@ -88,9 +88,11 @@ function seoForRoute(route) {
   return ROUTE_SEO[route.path] || ROUTE_SEO[`/${route.active}`] || DEFAULT_SEO;
 }
 
+await bundleEditor();
 await rewriteIndex(publicWebUrl, publicApiBase);
 await rewriteApp(publicApiBase);
 await minifyAssets();
+await stampEditorUrlInApp();
 await writeRoutePages(publicWebUrl);
 await writeRobots(publicWebUrl);
 await writeNotFound();
@@ -332,6 +334,40 @@ async function writeNotFound() {
 </html>
 `;
   await writeFile(resolve(dist, "404.html"), page);
+}
+
+// Bundle the TipTap rich-text editor (src/editor.js + npm deps) into one
+// self-hosted IIFE served under the strict CSP, lazy-loaded only where needed.
+async function bundleEditor() {
+  const entry = resolve(root, "src/editor.js");
+  try {
+    await stat(entry);
+  } catch {
+    return; // editor entry optional
+  }
+  await build({
+    entryPoints: [entry],
+    bundle: true,
+    minify: true,
+    format: "iife",
+    target: "es2019",
+    legalComments: "none",
+    outfile: resolve(dist, "vendor/editor.js")
+  });
+}
+
+// Stamp the editor bundle's content hash into its URL inside app.js, so the
+// lazy-loaded /vendor/editor.js can be cached immutably and busts on change.
+async function stampEditorUrlInApp() {
+  let hash;
+  try {
+    hash = createHash("sha256").update(await readFile(resolve(dist, "vendor/editor.js"))).digest("hex").slice(0, 10);
+  } catch {
+    return; // no editor bundle in this build
+  }
+  const appPath = resolve(dist, "app.js");
+  const js = await readFile(appPath, "utf8");
+  await writeFile(appPath, js.replaceAll("/vendor/editor.js", `/vendor/editor.js?v=${hash}`));
 }
 
 // --- Performance: minify JS/CSS, then content-hash asset URLs for long caching ---

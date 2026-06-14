@@ -11,6 +11,10 @@
     "seo:smoke": "node scripts/seo-smoke.js"
   },
   "devDependencies": {
+    "@tiptap/core": "^2.0.0",
+    "@tiptap/extension-link": "^2.0.0",
+    "@tiptap/extension-placeholder": "^2.0.0",
+    "@tiptap/starter-kit": "^2.0.0",
     "esbuild": "^0.24.0"
   }
 }
