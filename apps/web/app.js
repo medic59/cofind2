@@ -30,6 +30,39 @@ function resolveApiBase() {
 
 const API_BASE = resolveApiBase();
 const WS_BASE = API_BASE.replace(/^http/i, "ws").replace(/\/api\/v1\/?$/, "/ws/chat");
+
+// First-party, cookieless analytics beacon. Same-origin POST to the API — no
+// cookies, no third-party scripts, nothing that needs a consent banner or a CSP
+// change. Fire-and-forget; analytics must never break the app or block render.
+let lastTrackedPath = null;
+let analyticsReferrerSent = false;
+function sendAnalytics(payload) {
+  try {
+    const url = `${API_BASE}/analytics/collect`;
+    const body = JSON.stringify(payload);
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
+    } else {
+      fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+    }
+  } catch {
+    /* ignore — analytics is best-effort */
+  }
+}
+function trackPageview() {
+  const path = location.pathname || "/";
+  if (path === lastTrackedPath) return; // dedupe: one count per screen
+  lastTrackedPath = path;
+  const payload = { type: "pageview", path };
+  if (!analyticsReferrerSent) {
+    analyticsReferrerSent = true;
+    if (document.referrer) payload.referrer = document.referrer; // entry referrer, once per session
+  }
+  sendAnalytics(payload);
+}
+function trackEvent(name) {
+  sendAnalytics({ type: name, path: location.pathname || "/" });
+}
 const uploadImageTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const uploadImageLimits = {
   avatar: 128 * 1024,
@@ -286,7 +319,7 @@ let adminPlansCache = [];
 let adminAdsCache = [];
 let adminSeoCache = [];
 let activeAdminTab = "overview";
-const adminOwnerTabs = new Set(["launch", "premium", "seo", "audit"]);
+const adminOwnerTabs = new Set(["launch", "premium", "seo", "audit", "analytics"]);
 const adminLoadedTabs = new Set();
 let headerInboxUnreadCount = 0;
 const chatRooms = [
@@ -1032,6 +1065,7 @@ function setView(name, options = {}) {
   }
   if (normalized === "admin") applyAdminTab(activeAdminTab, { updateHistory: false, load: true });
   window.scrollTo({ top: 0, behavior: "smooth" });
+  trackPageview();
 }
 
 function setAuthMode(mode = "login") {
@@ -1103,6 +1137,7 @@ function wireAuthFallbackHandlers() {
           })
         });
         saveSession(session);
+        trackEvent("register");
         showToast("Аккаунт создан");
         completeAuthRedirect("me");
         return;
@@ -6020,9 +6055,76 @@ async function loadAdminTags() {
   }
 }
 
+function analyticsEventLabel(type) {
+  const labels = {
+    register: "Регистрации",
+    listing_created: "Создано заявок",
+    response_sent: "Отклики",
+    subscription_started: "Оформлено подписок"
+  };
+  return labels[type] || type;
+}
+
+function renderAnalyticsList(selector, title, rows, emptyText = "Пока нет данных.") {
+  const box = document.querySelector(selector);
+  if (!box) return;
+  const max = rows.reduce((acc, row) => Math.max(acc, row.count), 0) || 1;
+  box.innerHTML = `<h3>${escapeHtml(title)}</h3>` + (rows.length
+    ? rows.map((row) => {
+        const pct = Math.max(3, Math.round((row.count / max) * 100));
+        const label = escapeHtml(String(row.label ?? "—"));
+        return `<div class="analytics-row"><span class="analytics-row-label" title="${label}">${label}</span><span class="analytics-row-bar"><span style="width:${pct}%"></span></span><span class="analytics-row-count">${compactNumber(row.count)}</span></div>`;
+      }).join("")
+    : `<p class="muted-note">${escapeHtml(emptyText)}</p>`);
+}
+
+function renderAdminAnalytics(data) {
+  const { totals = {}, daily = [], topPages = [], topReferrers = [], topEvents = [], mobile = {} } = data || {};
+  const metrics = document.querySelector("#admin-analytics-metrics");
+  if (metrics) {
+    const mobilePct = mobile.total ? Math.round((mobile.mobile / mobile.total) * 100) : 0;
+    const avg = daily.length ? Math.round((totals.views || 0) / daily.length) : 0;
+    metrics.innerHTML = `
+      <article><strong>${compactNumber(totals.views || 0)}</strong><span>просмотров</span></article>
+      <article><strong>${compactNumber(totals.visitors || 0)}</strong><span>визитов (уник./день)</span></article>
+      <article><strong>${compactNumber(avg)}</strong><span>просмотров/день</span></article>
+      <article><strong>${mobilePct}%</strong><span>с мобильных</span></article>`;
+  }
+  const chart = document.querySelector("#admin-analytics-chart");
+  if (chart) {
+    const maxViews = daily.reduce((acc, day) => Math.max(acc, day.views), 0) || 1;
+    chart.innerHTML = daily.length
+      ? daily.map((day) => {
+          const pct = Math.max(2, Math.round((day.views / maxViews) * 100));
+          return `<div class="analytics-bar" style="height:${pct}%" title="${escapeHtml(day.day)}: ${day.views} просмотров, ${day.visitors} визитов"></div>`;
+        }).join("")
+      : `<p class="muted-note">Пока нет данных за выбранный период.</p>`;
+  }
+  renderAnalyticsList("#admin-analytics-pages", "Топ страниц", topPages.map((page) => ({ label: page.path, count: page.count })));
+  renderAnalyticsList("#admin-analytics-referrers", "Источники переходов", topReferrers.map((ref) => ({ label: ref.host, count: ref.count })), "Прямые заходы или нет внешних источников.");
+  renderAnalyticsList("#admin-analytics-events", "События", topEvents.map((evt) => ({ label: analyticsEventLabel(evt.type), count: evt.count })), "Событий пока нет.");
+}
+
+async function loadAdminAnalytics() {
+  const metrics = document.querySelector("#admin-analytics-metrics");
+  if (!metrics) return;
+  if (!authSession.accessToken || !isOwnerAdmin()) {
+    metrics.innerHTML = `<article><strong>—</strong><span>нужен вход OWNER/ADMIN</span></article>`;
+    return;
+  }
+  const range = Number(document.querySelector("#admin-analytics-range")?.value || 30) || 30;
+  try {
+    renderAdminAnalytics(await apiFetch(`/analytics/summary?days=${range}`));
+  } catch {
+    metrics.innerHTML = `<article><strong>—</strong><span>не удалось загрузить</span></article>`;
+  }
+}
+
+document.querySelector("#admin-analytics-range")?.addEventListener("change", () => loadAdminAnalytics());
+
 function normalizeAdminTab(tab = "overview") {
   const value = String(tab || "overview").trim().toLowerCase();
-  const allowed = new Set(["overview", "users", "catalog", "ads", "launch", "premium", "seo", "audit"]);
+  const allowed = new Set(["overview", "users", "catalog", "ads", "launch", "premium", "seo", "audit", "analytics"]);
   if (!allowed.has(value)) return "overview";
   if (adminOwnerTabs.has(value) && !isOwnerAdmin()) return "overview";
   return value;
@@ -6068,6 +6170,8 @@ async function loadAdminTab(tab = activeAdminTab, options = {}) {
     await Promise.all([loadAdminPlans(), loadAdminFinance()]);
   } else if (normalized === "seo") {
     await loadAdminSeoPages();
+  } else if (normalized === "analytics" && isOwnerAdmin()) {
+    await loadAdminAnalytics();
   } else if (normalized === "audit" && isOwnerAdmin()) {
     try {
       renderAuditLog(await apiFetch("/admin/audit-log"));
@@ -7272,6 +7376,7 @@ document.querySelector("#listing-form")?.addEventListener("submit", async (event
     if (existingIndex >= 0) listings[existingIndex] = normalized;
     else listings.unshift(normalized);
     renderListings();
+    if (!editingListingId) trackEvent("listing_created");
     showToast(editingListingId ? "Заявка обновлена" : payload.status === "PUBLISHED" ? "Заявка отправлена на модерацию" : "Заявка создана в API как черновик");
     clearListingDraft();
     resetListingEditor({ restoreDraft: false });
@@ -7328,6 +7433,7 @@ document.querySelector("#listing-response-form")?.addEventListener("submit", asy
     input.value = "";
     syncRichEditorFromTextarea("listing-response-message");
     updateListingResponseState();
+    trackEvent("response_sent");
     showToast("Отклик отправлен автору");
   } catch (error) {
     showToast(apiFailure("Не удалось отправить отклик через API", error));

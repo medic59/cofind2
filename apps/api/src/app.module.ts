@@ -3,6 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { createThrottlerStorage } from "./common/throttler-redis";
 import { AdminModule } from "./modules/admin/admin.module";
+import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { CatalogModule } from "./modules/catalog/catalog.module";
 import { ChatModule } from "./modules/chat/chat.module";
@@ -42,7 +43,8 @@ import { UploadsModule } from "./modules/uploads/uploads.module";
     UploadsModule,
     MeModule,
     PublicModule,
-    AdminModule
+    AdminModule,
+    AnalyticsModule
   ],
   providers: [
     {

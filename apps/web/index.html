@@ -1118,6 +1118,7 @@
           <button type="button" data-admin-tab="launch" data-owner-admin-feature>Запуск</button>
           <button type="button" data-admin-tab="premium" data-owner-admin-feature>Premium</button>
           <button type="button" data-admin-tab="seo" data-owner-admin-feature>SEO</button>
+          <button type="button" data-admin-tab="analytics" data-owner-admin-feature>Аналитика</button>
           <button type="button" data-admin-tab="audit" data-owner-admin-feature>Audit</button>
         </nav>
         <div class="admin-grid">
@@ -1696,6 +1697,30 @@
             </div>
             <div class="audit-list" id="admin-audit-log">
               <article><strong>Только OWNER/ADMIN</strong><p>Последние действия появятся после входа с нужной ролью.</p></article>
+            </div>
+          </section>
+          <section class="content-block wide is-hidden" id="admin-analytics-section" data-admin-panel="analytics" data-owner-admin-feature>
+            <div class="section-title">
+              <div>
+                <h2>Аналитика</h2>
+                <p class="muted-note" id="admin-analytics-note">Посещаемость и события сайта. Свой first-party учёт без куки и сторонних сервисов. Доступно OWNER/ADMIN.</p>
+              </div>
+              <label>Период
+                <select id="admin-analytics-range">
+                  <option value="7">7 дней</option>
+                  <option value="30" selected>30 дней</option>
+                  <option value="90">90 дней</option>
+                </select>
+              </label>
+            </div>
+            <div class="metric-grid" id="admin-analytics-metrics">
+              <article><strong>—</strong><span>загрузка…</span></article>
+            </div>
+            <div class="analytics-chart" id="admin-analytics-chart"></div>
+            <div class="analytics-columns">
+              <div class="analytics-list" id="admin-analytics-pages"></div>
+              <div class="analytics-list" id="admin-analytics-referrers"></div>
+              <div class="analytics-list" id="admin-analytics-events"></div>
             </div>
           </section>
         </div>

@@ -3561,3 +3561,69 @@ html[data-auth-state="user"]:not(.auth-resolved) #auth-button * {
   width: 18px;
   height: 18px;
 }
+
+/* Admin analytics dashboard (first-party stats) */
+.analytics-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 140px;
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--surface-muted, #f4f4fb);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.analytics-bar {
+  flex: 1 1 0;
+  min-width: 3px;
+  background: var(--accent-strong, #7a5cff);
+  border-radius: 3px 3px 0 0;
+  opacity: 0.85;
+}
+.analytics-bar:hover {
+  opacity: 1;
+}
+.analytics-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+.analytics-list h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+.analytics-row {
+  display: grid;
+  grid-template-columns: 1fr 80px auto;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+  font-size: 0.85rem;
+}
+.analytics-row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.analytics-row-bar {
+  height: 8px;
+  background: var(--surface-muted, #ececf6);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.analytics-row-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent-strong, #7a5cff);
+  border-radius: 4px;
+}
+.analytics-row-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted, #6a6c80);
+}
+@media (max-width: 560px) {
+  .analytics-row {
+    grid-template-columns: 1fr 50px auto;
+  }
+}

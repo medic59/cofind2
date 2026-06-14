@@ -784,6 +784,25 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 }
 
+// First-party, cookieless web analytics. One row per pageview/event. No PII:
+// `visitorDay` is a salted daily hash of ip+ua that rotates every day (the date
+// is part of the hash input), so it counts daily uniques without cross-day
+// tracking and cannot be reversed to an identity.
+model AnalyticsEvent {
+  id           String   @id @default(uuid())
+  type         String // "pageview" or an event name, e.g. "listing_created"
+  path         String // normalized screen path, e.g. "/", "/feed", "/listing/:id"
+  referrerHost String? // external referrer host only (null for direct/internal)
+  visitorDay   String // salted daily hash (no cross-day linkage) for unique counts
+  isMobile     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type, createdAt])
+  @@index([path, createdAt])
+  @@index([visitorDay])
+}
+
 model AuditLog {
   id         String   @id @default(uuid())
   actorId    String?
