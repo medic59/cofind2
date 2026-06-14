@@ -399,3 +399,25 @@ pnpm --filter @cofind/api seed
 pnpm --filter @cofind/api dev
 pnpm --filter @cofind/api smoke
 ```
+
+## Бэкапы БД
+
+Ежедневный логический бэкап Postgres настроен на проде: `deploy/backup-db.sh` запускается по cron в 03:30 и делает `pg_dump -Fc` (сжатый, восстановимый формат) в `~/backups/db/cofind-<timestamp>.dump`. Ретеншен — последние 14 дампов (плюс жёсткий потолок 30 дней), каждый запуск логируется в `~/backups/db/backup.log`, слишком маленький дамп считается ошибкой и удаляется.
+
+Ручной запуск:
+
+```bash
+~/cofind2/deploy/backup-db.sh
+```
+
+Восстановление (custom-формат → `pg_restore`):
+
+```bash
+DUMP=~/backups/db/cofind-YYYYMMDD-HHMMSS.dump
+# проверить содержимое дампа, ничего не меняя:
+docker exec -i deploy-postgres-1 pg_restore --list < "$DUMP" | head
+# восстановить в чистую БД (--clean удаляет существующие объекты перед загрузкой):
+docker exec -i deploy-postgres-1 pg_restore -U cofind -d cofind --clean --if-exists --no-owner < "$DUMP"
+```
+
+> **Важно:** это защищает от повреждения БД / случайного `DROP`, но НЕ от потери всего сервера — дампы лежат на том же хосте. Для защиты от потери сервера нужна выгрузка off-site (S3 / другой хост) — в скрипте есть закомментированный блок `OFF-SITE` (`aws s3 cp` / `rsync`), который включается после указания цели и доступов.
