@@ -292,7 +292,7 @@ let blocksLoadingPromise = null;
 let recentListings = [];
 let pendingViewAfterAuth = null;
 let pendingPathAfterAuth = null;
-const authRequiredViews = new Set(["me", "appearance", "inbox", "new-listing", "admin"]);
+const authRequiredViews = new Set(["me", "appearance", "inbox", "new-listing", "admin", "ai-partner"]);
 let deepLinkRoute = null;
 let currentProfileUsername = null;
 let currentPublicProfile = null;
@@ -496,7 +496,8 @@ function aiEnabled() {
 function applyFeatureFlags() {
   const ai = aiEnabled();
   document.querySelectorAll("[data-ai-feature]").forEach((element) => {
-    element.classList.toggle("is-hidden", !ai);
+    const requiresAuth = element.hasAttribute("data-auth-feature");
+    element.classList.toggle("is-hidden", !(ai && (!requiresAuth || isAuthenticated())));
   });
   const monetization = monetizationEnabled();
   document.querySelectorAll("[data-paid-feature]").forEach((element) => {
@@ -979,6 +980,7 @@ function viewPath(name) {
     contacts: "/contacts",
     report: "/reports/new",
     admin: adminUrl(),
+    "ai-partner": "/ai-partner",
     listing: selectedListing ? listingHref(selectedListing) : "/listing",
     profile: profileUrl()
   };
@@ -1073,6 +1075,7 @@ function setView(name, options = {}) {
     keepMessagesAtBottom();
   }
   if (normalized === "admin") applyAdminTab(activeAdminTab, { updateHistory: false, load: true });
+  if (normalized === "ai-partner") loadRpSessions();
   window.scrollTo({ top: 0, behavior: "smooth" });
   trackPageview();
 }
@@ -1312,6 +1315,7 @@ function openAppPath(path, { deferRemote = false, updateHistory = true } = {}) {
     privacy: "privacy",
     contacts: "contacts",
     admin: "admin",
+    "ai-partner": "ai-partner",
     "new-listing": "new-listing"
   };
   if (section === "auth") {
@@ -7392,6 +7396,157 @@ document.querySelector("#ai-draft-button")?.addEventListener("click", async () =
     showToast(apiFailure("Не удалось сгенерировать черновик", error));
   } finally {
     if (button) button.disabled = false;
+  }
+});
+
+// ---- ИИ-соигрок (RP with an AI partner) ----
+let rpCurrentSessionId = null;
+
+async function loadRpSessions() {
+  if (!aiEnabled() || !authSession.accessToken) return;
+  try {
+    renderRpSessions(await apiFetch("/ai/rp/sessions"));
+  } catch {
+    renderRpSessions([]);
+  }
+}
+
+function renderRpSessions(sessions = []) {
+  const list = document.querySelector("#rp-session-list");
+  if (!list) return;
+  list.innerHTML = sessions.length
+    ? sessions.map((session) => `<div class="rp-session-item${session.id === rpCurrentSessionId ? " is-active" : ""}" data-rp-open="${escapeHtml(session.id)}">
+        <span class="rp-session-meta"><span class="rp-session-title">${escapeHtml(session.title)}</span>${session.fandom ? `<span class="rp-session-sub">${escapeHtml(session.fandom)}</span>` : ""}</span>
+        <button type="button" class="rp-session-del" data-rp-delete="${escapeHtml(session.id)}" aria-label="Удалить сессию" title="Удалить">✕</button>
+      </div>`).join("")
+    : `<p class="muted-note">Пока нет сессий. Создайте первую.</p>`;
+}
+
+function rpShowForm() {
+  rpCurrentSessionId = null;
+  document.querySelector("#rp-persona-form")?.classList.remove("is-hidden");
+  document.querySelector("#rp-conversation")?.classList.add("is-hidden");
+  document.querySelectorAll(".rp-session-item.is-active").forEach((element) => element.classList.remove("is-active"));
+}
+
+function rpMessageHtml(message) {
+  const mine = message.role !== "assistant";
+  return `<div class="rp-message ${mine ? "rp-me" : "rp-ai"}"><span class="rp-message-role">${mine ? "Вы" : "ИИ-партнёр"}</span><div class="rp-message-text">${richTextToHtml(message.content)}</div></div>`;
+}
+
+function rpRenderMessages(messages = []) {
+  const box = document.querySelector("#rp-messages");
+  if (!box) return;
+  box.innerHTML = messages.map(rpMessageHtml).join("");
+  box.scrollTop = box.scrollHeight;
+}
+
+function rpOpenConversation(session, messages) {
+  rpCurrentSessionId = session.id;
+  document.querySelector("#rp-persona-form")?.classList.add("is-hidden");
+  document.querySelector("#rp-conversation")?.classList.remove("is-hidden");
+  const title = document.querySelector("#rp-conversation-title");
+  if (title) title.textContent = session.title || "Сессия";
+  rpRenderMessages(messages || []);
+  document.querySelectorAll("[data-rp-open]").forEach((element) => element.classList.toggle("is-active", element.dataset.rpOpen === session.id));
+}
+
+async function openRpSession(id) {
+  if (!id) return;
+  try {
+    const data = await apiFetch(`/ai/rp/sessions/${encodeURIComponent(id)}`);
+    rpOpenConversation(data.session, data.messages);
+  } catch (error) {
+    showToast(apiFailure("Не удалось открыть сессию", error));
+  }
+}
+
+document.querySelector("#rp-new-session")?.addEventListener("click", rpShowForm);
+document.querySelector("#rp-back")?.addEventListener("click", rpShowForm);
+
+document.querySelector("#rp-session-list")?.addEventListener("click", async (event) => {
+  const del = event.target.closest("[data-rp-delete]");
+  if (del) {
+    event.stopPropagation();
+    if (!window.confirm("Удалить сессию и всю историю?")) return;
+    try {
+      await apiFetch(`/ai/rp/sessions/${encodeURIComponent(del.dataset.rpDelete)}`, { method: "DELETE" });
+      if (rpCurrentSessionId === del.dataset.rpDelete) rpShowForm();
+      await loadRpSessions();
+    } catch (error) {
+      showToast(apiFailure("Не удалось удалить сессию", error));
+    }
+    return;
+  }
+  const open = event.target.closest("[data-rp-open]");
+  if (open) openRpSession(open.dataset.rpOpen);
+});
+
+document.querySelector("#rp-persona-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!aiEnabled()) return;
+  const status = document.querySelector("#rp-persona-status");
+  const startButton = document.querySelector("#rp-start");
+  const value = (id) => (document.querySelector(id)?.value || "").trim() || undefined;
+  const payload = {
+    title: (document.querySelector("#rp-title")?.value || "").trim(),
+    fandom: value("#rp-fandom"),
+    character: value("#rp-character"),
+    userRole: value("#rp-userrole"),
+    style: value("#rp-style"),
+    tempo: value("#rp-tempo"),
+    setting: value("#rp-setting"),
+    boundaries: value("#rp-boundaries"),
+    ageRating: document.querySelector("#rp-agerating")?.value || "TEEN"
+  };
+  if (payload.title.length < 2) {
+    showToast("Укажите название сессии");
+    return;
+  }
+  if (startButton) startButton.disabled = true;
+  if (status) status.textContent = "ИИ создаёт сцену…";
+  try {
+    const data = await apiFetch("/ai/rp/sessions", { method: "POST", body: JSON.stringify(payload) });
+    if (status) status.textContent = "";
+    document.querySelector("#rp-persona-form")?.reset();
+    await loadRpSessions();
+    rpOpenConversation(data.session, data.messages);
+  } catch (error) {
+    if (status) status.textContent = "";
+    showToast(apiFailure("Не удалось создать сессию", error));
+  } finally {
+    if (startButton) startButton.disabled = false;
+  }
+});
+
+document.querySelector("#rp-message-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!rpCurrentSessionId) return;
+  const input = document.querySelector("#rp-message-input");
+  const sendButton = document.querySelector("#rp-send");
+  const status = document.querySelector("#rp-message-status");
+  const box = document.querySelector("#rp-messages");
+  const content = (input?.value || "").trim();
+  if (!content) return;
+  if (box) {
+    box.insertAdjacentHTML("beforeend", rpMessageHtml({ role: "user", content }));
+    box.scrollTop = box.scrollHeight;
+  }
+  if (input) input.value = "";
+  if (sendButton) sendButton.disabled = true;
+  if (status) status.textContent = "ИИ-партнёр печатает…";
+  try {
+    const reply = await apiFetch(`/ai/rp/sessions/${encodeURIComponent(rpCurrentSessionId)}/message`, { method: "POST", body: JSON.stringify({ content }) });
+    if (box) {
+      box.insertAdjacentHTML("beforeend", rpMessageHtml(reply));
+      box.scrollTop = box.scrollHeight;
+    }
+    if (status) status.textContent = "ИИ-партнёр отвечает в образе. Это не реальный человек.";
+  } catch (error) {
+    if (status) status.textContent = "";
+    showToast(apiFailure("Не удалось отправить ход", error));
+  } finally {
+    if (sendButton) sendButton.disabled = false;
   }
 });
 

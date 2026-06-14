@@ -817,6 +817,39 @@ model AiUsage {
   @@index([day])
 }
 
+// AI co-player (RP) session: a roleplay/co-writing conversation with an AI
+// partner whose persona (fandom, character, user's role, style, setting,
+// boundaries, age rating) is set by the user. Drives the system prompt.
+model AiRpSession {
+  id         String        @id @default(uuid())
+  userId     String
+  title      String
+  fandom     String?
+  character  String? // the character the AI plays
+  userRole   String? // who the user plays
+  style      String?
+  tempo      String?
+  setting    String?       @db.Text
+  boundaries String?       @db.Text
+  ageRating  String        @default("TEEN")
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  messages   AiRpMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model AiRpMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   AiRpSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String // "user" | "assistant"
+  content   String      @db.Text
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
 model AuditLog {
   id         String   @id @default(uuid())
   actorId    String?

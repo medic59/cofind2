@@ -77,6 +77,7 @@
           <a href="/help" data-view-link="help">Как это работает</a>
           <a href="/rules" data-view-link="rules">Правила</a>
           <a href="/chat" data-view-link="chat">Чат</a>
+          <a class="is-hidden" href="/ai-partner" data-view-link="ai-partner" data-ai-feature data-auth-feature>ИИ-соигрок</a>
           <a class="is-hidden" href="/me" data-view-link="me" data-auth-feature>Личный кабинет</a>
         </nav>
         <div class="top-actions">
@@ -1734,6 +1735,84 @@
               <div class="analytics-list" id="admin-analytics-events"></div>
             </div>
           </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-ai-partner" aria-labelledby="ai-partner-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">/ai-partner</p>
+            <h1 id="ai-partner-title">ИИ-соигрок</h1>
+            <p class="muted-note">Ролевая игра и совместное письмо с ИИ-партнёром. Задайте персону — фандом, персонажа, стиль, границы. Это ИИ, а не реальный человек.</p>
+          </div>
+        </div>
+        <div class="rp-layout">
+          <aside class="rp-sidebar">
+            <button type="button" id="rp-new-session" class="secondary-button">+ Новая сессия</button>
+            <div id="rp-session-list" class="rp-session-list"></div>
+          </aside>
+          <div class="rp-main">
+            <form id="rp-persona-form" class="rp-persona">
+              <h2>Новая сессия</h2>
+              <label>Название сессии
+                <input id="rp-title" maxlength="120" required placeholder="Напр.: Ночной разговор на станции" />
+              </label>
+              <div class="form-row">
+                <label>Фандом / сеттинг
+                  <input id="rp-fandom" maxlength="120" placeholder="Honkai, ориджинал, киберпанк…" />
+                </label>
+                <label>Персонаж ИИ
+                  <input id="rp-character" maxlength="120" placeholder="Кого отыгрывает ИИ" />
+                </label>
+              </div>
+              <div class="form-row">
+                <label>Ваш персонаж
+                  <input id="rp-userrole" maxlength="120" placeholder="Кого играете вы" />
+                </label>
+                <label>Стиль
+                  <input id="rp-style" maxlength="80" placeholder="Лиричный, динамичный…" />
+                </label>
+              </div>
+              <div class="form-row">
+                <label>Темп
+                  <select id="rp-tempo">
+                    <option value="">—</option>
+                    <option>Неспешный</option>
+                    <option>Средний</option>
+                    <option>Динамичный</option>
+                  </select>
+                </label>
+                <label>Возрастной рейтинг
+                  <select id="rp-agerating">
+                    <option value="EVERYONE">Для всех</option>
+                    <option value="TEEN" selected>Подростковый</option>
+                    <option value="MATURE">Серьёзные темы</option>
+                    <option value="ADULT">18+</option>
+                  </select>
+                </label>
+              </div>
+              <label>Описание сцены
+                <textarea id="rp-setting" rows="3" maxlength="2000" placeholder="Где и когда происходит действие, завязка…"></textarea>
+              </label>
+              <label>Границы (что недопустимо)
+                <textarea id="rp-boundaries" rows="2" maxlength="2000" placeholder="Темы и действия, которых ИИ должен избегать"></textarea>
+              </label>
+              <button type="submit" class="primary-button" id="rp-start">Начать игру</button>
+              <p class="muted-note" id="rp-persona-status"></p>
+            </form>
+            <div id="rp-conversation" class="rp-conversation is-hidden">
+              <div class="rp-conversation-head">
+                <h2 id="rp-conversation-title">Сессия</h2>
+                <button type="button" id="rp-back" class="ghost-button">← К сессиям</button>
+              </div>
+              <div id="rp-messages" class="rp-messages"></div>
+              <form id="rp-message-form" class="rp-composer">
+                <textarea id="rp-message-input" rows="3" maxlength="4000" placeholder="Ваш ход…" required></textarea>
+                <button type="submit" class="primary-button" id="rp-send">Отправить</button>
+              </form>
+              <p class="muted-note" id="rp-message-status">ИИ-партнёр отвечает в образе. Это не реальный человек.</p>
+            </div>
+          </div>
         </div>
       </section>
 

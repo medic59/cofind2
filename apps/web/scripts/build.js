@@ -155,6 +155,7 @@ async function writeRoutePages(webUrl) {
     { file: "me/inbox/index.html", path: "/me/inbox", title: "Сообщения - Cofind 2", views: ["inbox"], active: "inbox", noindex: true },
     { file: "me/subscription/index.html", path: "/me/subscription", title: "Подписка - Cofind 2", views: ["subscription"], active: "subscription", noindex: true },
     { file: "admin/index.html", path: "/admin", title: "Админка - Cofind 2", views: ["admin", "auth", "me"], active: "auth", noindex: true },
+    { file: "ai-partner/index.html", path: "/ai-partner", title: "ИИ-соигрок - Cofind 2", views: ["ai-partner", "auth"], active: "ai-partner", noindex: true },
     { file: "listing/index.html", path: "/listing", title: "Заявка - Cofind 2", views: ["listing"], active: "listing" },
     { file: "profile/index.html", path: "/profile", title: "Профиль автора - Cofind 2", views: ["profile"], active: "profile" },
     { file: "profiles/index.html", path: "/profiles", title: "Профиль автора - Cofind 2", views: ["profile"], active: "profile" },
