@@ -1910,10 +1910,10 @@ function renderProfileFormat(profile = {}) {
 }
 
 function richInline(value) {
+  // Links are intentionally not rendered (anti-abuse): markdown link / autolink
+  // syntax is left as plain text rather than turned into clickable anchors.
   return escapeHtml(value)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/&lt;(https?:\/\/[^>\s]+)&gt;/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>");
 }
@@ -1925,7 +1925,9 @@ function hasRichHtml(value) {
 function sanitizeRichHtml(value) {
   const template = document.createElement("template");
   template.innerHTML = String(value || "");
-  const allowedTags = new Set(["P", "BR", "STRONG", "B", "EM", "I", "S", "UL", "OL", "LI", "BLOCKQUOTE", "A", "CODE"]);
+  // Links (<a>) are intentionally NOT allowed (anti-abuse) — they get unwrapped
+  // to their text content like any other disallowed tag.
+  const allowedTags = new Set(["P", "BR", "STRONG", "B", "EM", "I", "S", "UL", "OL", "LI", "BLOCKQUOTE", "CODE"]);
   const cleanNode = (node) => {
     [...node.childNodes].forEach((child) => {
       if (child.nodeType !== Node.ELEMENT_NODE) return;
@@ -1935,18 +1937,7 @@ function sanitizeRichHtml(value) {
         element.replaceWith(...element.childNodes);
         return;
       }
-      const href = element.tagName === "A" ? element.getAttribute("href") || "" : "";
       [...element.attributes].forEach((attribute) => element.removeAttribute(attribute.name));
-      if (element.tagName === "A") {
-        if (/^https?:\/\//i.test(href)) {
-          element.setAttribute("href", href);
-          element.setAttribute("target", "_blank");
-          element.setAttribute("rel", "noopener noreferrer");
-        } else {
-          element.replaceWith(...element.childNodes);
-          return;
-        }
-      }
       cleanNode(element);
     });
   };
@@ -2415,7 +2406,6 @@ const EDITOR_TOOLBAR = [
   { command: "bulletList", label: "Маркированный список", content: "•" },
   { command: "orderedList", label: "Нумерованный список", content: "1." },
   { command: "blockquote", label: "Цитата", content: "❝" },
-  { command: "link", label: "Ссылка", content: "↗" },
   { divider: true },
   { command: "undo", label: "Отменить", content: "↶" },
   { command: "redo", label: "Повторить", content: "↷" },
@@ -2442,12 +2432,6 @@ function runEditorCommand(item, command) {
     case "undo": chain().undo().run(); break;
     case "redo": chain().redo().run(); break;
     case "emoji": item.emojiPicker.classList.toggle("is-hidden"); break;
-    case "link": {
-      if (item.editor.isActive("link")) { chain().unsetLink().run(); break; }
-      const url = normalizeRichUrl(window.prompt("Ссылка (https://...)", "") || "");
-      if (url) chain().extendMarkRange("link").setLink({ href: url }).run();
-      break;
-    }
     default: break;
   }
 }
@@ -2459,7 +2443,7 @@ function updateEditorToolbarState(item) {
   item.toolbar.querySelectorAll("[data-rich-command]").forEach((btn) => {
     btn.disabled = disabled;
     const command = btn.dataset.richCommand;
-    if (["bold", "italic", "strike", "bulletList", "orderedList", "blockquote", "link"].includes(command)) {
+    if (["bold", "italic", "strike", "bulletList", "orderedList", "blockquote"].includes(command)) {
       btn.classList.toggle("is-active", item.editor.isActive(command));
     }
   });
@@ -2479,7 +2463,7 @@ function createRichEditor(textarea) {
     ? textarea.previousElementSibling
     : [...document.querySelectorAll(".rich-toolbar")].find((element) => element.dataset.editorTarget === textarea.id);
   if (!toolbar) return;
-  const { Editor, StarterKit, Link, Placeholder } = window.CofindRichText;
+  const { Editor, StarterKit, Placeholder } = window.CofindRichText;
 
   const shell = document.createElement("div");
   shell.className = "rich-editor-shell";
@@ -2509,7 +2493,6 @@ function createRichEditor(textarea) {
     content: textarea.value || "",
     extensions: [
       StarterKit.configure({ heading: false, codeBlock: false, code: false, horizontalRule: false }),
-      Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" } }),
       Placeholder.configure({ placeholder: textarea.placeholder || "Начните писать..." })
     ],
     onUpdate: () => { syncTextareaFromEditor(item); updateEditorToolbarState(item); },
