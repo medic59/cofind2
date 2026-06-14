@@ -803,6 +803,20 @@ model AnalyticsEvent {
   @@index([visitorDay])
 }
 
+// Per-user, per-day counter for AI feature usage (rate/cost control). One row
+// per (user, feature, day); incremented on each successful AI call.
+model AiUsage {
+  id        String   @id @default(uuid())
+  userId    String
+  feature   String // bucket key, e.g. "all"
+  day       String // YYYY-MM-DD (UTC)
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, feature, day])
+  @@index([day])
+}
+
 model AuditLog {
   id         String   @id @default(uuid())
   actorId    String?

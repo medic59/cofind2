@@ -84,7 +84,8 @@ const uploadImageLabels = {
   drawing: "Рисунок"
 };
 let featureFlags = {
-  monetizationEnabled: false
+  monetizationEnabled: false,
+  aiEnabled: false
 };
 
 function ensureButtonTypes(root = document) {
@@ -488,7 +489,15 @@ function monetizationEnabled() {
   return featureFlags.monetizationEnabled === true;
 }
 
+function aiEnabled() {
+  return featureFlags.aiEnabled === true;
+}
+
 function applyFeatureFlags() {
+  const ai = aiEnabled();
+  document.querySelectorAll("[data-ai-feature]").forEach((element) => {
+    element.classList.toggle("is-hidden", !ai);
+  });
   const monetization = monetizationEnabled();
   document.querySelectorAll("[data-paid-feature]").forEach((element) => {
     const requiresAuth = element.hasAttribute("data-auth-feature");
@@ -5511,8 +5520,10 @@ function renderAdminMetrics(dashboard) {
 
 function renderAdminSettings(settings = featureFlags) {
   const checkbox = document.querySelector("#admin-monetization-enabled");
+  const aiCheckbox = document.querySelector("#admin-ai-enabled");
   const note = document.querySelector("#admin-settings-note");
   if (checkbox) checkbox.checked = Boolean(settings.monetizationEnabled);
+  if (aiCheckbox) aiCheckbox.checked = Boolean(settings.aiEnabled);
   if (note) {
     note.textContent = settings.monetizationEnabled
       ? "Premium и оформление подписки видны пользователям. Перед публичным трафиком проверьте платежного провайдера."
@@ -7338,6 +7349,52 @@ document.querySelector("#listing-form")?.addEventListener("change", () => {
   scheduleListingDraftSave();
 });
 
+document.querySelector("#ai-draft-button")?.addEventListener("click", async () => {
+  if (!aiEnabled()) return;
+  const promptInput = document.querySelector("#ai-draft-prompt");
+  const status = document.querySelector("#ai-draft-status");
+  const button = document.querySelector("#ai-draft-button");
+  const prompt = (promptInput?.value || "").trim();
+  if (prompt.length < 3) {
+    showToast("Опишите идею хотя бы парой слов");
+    return;
+  }
+  if (button) button.disabled = true;
+  if (status) status.textContent = "ИИ генерирует черновик…";
+  try {
+    const typeSelect = document.querySelector("#listing-type");
+    const type = typeSelect?.value || undefined;
+    const draft = await apiFetch("/ai/listing/draft", { method: "POST", body: JSON.stringify({ prompt, type }) });
+    if (draft.title) {
+      const titleInput = document.querySelector("#listing-title-input");
+      if (titleInput) {
+        titleInput.value = draft.title;
+        titleInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+    if (draft.body) {
+      const bodyInput = document.querySelector("#listing-body-input");
+      if (bodyInput) {
+        bodyInput.value = draft.body;
+        bodyInput.dispatchEvent(new Event("input", { bubbles: true }));
+        syncRichEditorFromTextarea("listing-body-input");
+      }
+    }
+    const hints = [];
+    if (draft.suggestedFandoms?.length) hints.push(`фандомы: ${draft.suggestedFandoms.join(", ")}`);
+    if (draft.suggestedGenres?.length) hints.push(`жанры: ${draft.suggestedGenres.join(", ")}`);
+    if (draft.suggestedTags?.length) hints.push(`теги: ${draft.suggestedTags.join(", ")}`);
+    if (status) status.textContent = hints.length ? `Черновик готов. Подсказки — ${hints.join("; ")}. Проверьте и отредактируйте.` : "Черновик готов. Проверьте и отредактируйте перед публикацией.";
+    updateListingFormState();
+    updateListingPreview();
+  } catch (error) {
+    if (status) status.textContent = "";
+    showToast(apiFailure("Не удалось сгенерировать черновик", error));
+  } finally {
+    if (button) button.disabled = false;
+  }
+});
+
 document.querySelector("#listing-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!authSession.accessToken) {
@@ -7877,17 +7934,18 @@ document.querySelector("#admin-settings-save")?.addEventListener("click", async 
     return;
   }
   const enabled = Boolean(document.querySelector("#admin-monetization-enabled")?.checked);
+  const ai = Boolean(document.querySelector("#admin-ai-enabled")?.checked);
   try {
     const settings = await apiFetch("/admin/settings", {
       method: "PATCH",
-      body: JSON.stringify({ monetizationEnabled: enabled })
+      body: JSON.stringify({ monetizationEnabled: enabled, aiEnabled: ai })
     });
     featureFlags = { ...featureFlags, ...settings };
     applyFeatureFlags();
     renderAdminSettings(settings);
     renderAdminMetrics({ ...(await apiFetch("/admin/dashboard")) });
     await hydrateFromApi();
-    showToast(enabled ? "Платные функции включены" : "Платные функции скрыты");
+    showToast("Настройки функций сохранены");
   } catch (error) {
     showToast(apiFailure("Не удалось сохранить настройки функций", error));
   }

@@ -3657,3 +3657,24 @@ html[data-auth-state="user"]:not(.auth-resolved) #auth-button * {
     min-height: 40px;
   }
 }
+
+/* AI draft assistant panel in the listing editor */
+.ai-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+  border: 1px dashed var(--accent-strong, #7a5cff);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-strong, #7a5cff), white 92%);
+}
+.ai-draft label {
+  font-weight: 600;
+}
+.ai-draft input {
+  width: 100%;
+}
+.ai-draft #ai-draft-button {
+  align-self: flex-start;
+}

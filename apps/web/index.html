@@ -402,6 +402,13 @@
         </div>
         <form class="editor-grid" id="listing-form">
           <section class="form-panel">
+            <div class="ai-draft is-hidden" data-ai-feature>
+              <label>✨ Черновик с ИИ
+                <input id="ai-draft-prompt" type="text" maxlength="500" placeholder="Опишите идею: что ищете, фандом, темп, границы…" />
+              </label>
+              <button type="button" id="ai-draft-button" class="secondary-button">Сгенерировать черновик</button>
+              <p class="muted-note" id="ai-draft-status">ИИ заполнит заголовок и описание — отредактируйте перед публикацией.</p>
+            </div>
             <label>Тип заявки
               <select id="listing-type" required>
                 <option>ROLEPLAY_SEARCH</option>
@@ -1140,6 +1147,10 @@
             <label class="check-line">
               <input id="admin-monetization-enabled" type="checkbox" />
               Показывать Premium, тарифы, оформление подписки и историю платежей пользователям
+            </label>
+            <label class="check-line">
+              <input id="admin-ai-enabled" type="checkbox" />
+              Включить ИИ-функции (помощник заявки и др.) — требуется настроенный API-ключ провайдера
             </label>
             <button class="secondary-button" id="admin-settings-save" type="button">Сохранить настройки</button>
           </section>

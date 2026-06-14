@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, ReportStatus, SuggestionStatus, UserRole, UserStatus } from "@prisma/client";
-import { publicFeatureFlags, setMonetizationEnabled } from "../../common/system-settings";
+import { publicFeatureFlags, setAiEnabled, setMonetizationEnabled } from "../../common/system-settings";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   ModerateListingDto,
@@ -39,17 +39,25 @@ export class AdminService {
 
   updateSettings(actorId: string, dto: UpdateAdminSettingsDto) {
     return this.prisma.$transaction(async (tx) => {
-      await setMonetizationEnabled(tx, dto.monetizationEnabled);
+      const changes: Record<string, boolean> = {};
+      if (dto.monetizationEnabled !== undefined) {
+        await setMonetizationEnabled(tx, dto.monetizationEnabled);
+        changes.monetizationEnabled = dto.monetizationEnabled;
+      }
+      if (dto.aiEnabled !== undefined) {
+        await setAiEnabled(tx, dto.aiEnabled);
+        changes.aiEnabled = dto.aiEnabled;
+      }
       await tx.auditLog.create({
         data: {
           actorId,
           action: "UPDATE_SYSTEM_SETTINGS",
           entityType: "SYSTEM_SETTING",
           entityId: "features",
-          metadata: { monetizationEnabled: dto.monetizationEnabled }
+          metadata: changes
         }
       });
-      return { monetizationEnabled: dto.monetizationEnabled };
+      return publicFeatureFlags(tx);
     });
   }
 

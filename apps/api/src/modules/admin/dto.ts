@@ -230,6 +230,11 @@ export class UpsertSeoPageDto {
 }
 
 export class UpdateAdminSettingsDto {
+  @IsOptional()
   @IsBoolean()
-  monetizationEnabled!: boolean;
+  monetizationEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  aiEnabled?: boolean;
 }
