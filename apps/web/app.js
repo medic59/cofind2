@@ -83,10 +83,17 @@ const uploadImageLabels = {
   cover: "Обложка",
   drawing: "Рисунок"
 };
-let featureFlags = {
-  monetizationEnabled: false,
-  aiEnabled: false
-};
+// Optimistically seed feature flags from the last known values (localStorage) so
+// feature-gated header items (e.g. «ИИ-соигрок») render correctly on first paint
+// instead of collapsing until the live /settings response arrives. Corrected and
+// re-persisted in hydrateFromApi(). readStoredJson is hoisted (defined below).
+let featureFlags = (() => {
+  const cached = readStoredJson("cofindFeatureFlags", {}) || {};
+  return {
+    monetizationEnabled: cached.monetizationEnabled === true,
+    aiEnabled: cached.aiEnabled === true
+  };
+})();
 
 function ensureButtonTypes(root = document) {
   const buttons = root.matches?.("button:not([type])")
@@ -6394,6 +6401,13 @@ async function hydrateFromApi() {
     safe(apiFetch("/ads/placements"), [])
   ]);
   featureFlags = { ...featureFlags, ...(settings || {}) };
+  // Persist for the next load's first paint (see featureFlags seeding above).
+  try {
+    localStorage.setItem("cofindFeatureFlags", JSON.stringify({
+      monetizationEnabled: featureFlags.monetizationEnabled === true,
+      aiEnabled: featureFlags.aiEnabled === true
+    }));
+  } catch {}
   applyFeatureFlags();
   if (chatError) {
     chatAvailability = "unavailable";

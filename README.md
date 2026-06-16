@@ -474,3 +474,7 @@ docker exec -i deploy-postgres-1 pg_restore -U cofind -d cofind --clean --if-exi
 #### Фикс пустого экрана `/ai-partner`
 
 Анти-FOUC скрывает все `.view` через `html[data-initial-view] .view { display:none !important }` и показывает нужную парным правилом-исключением в инлайновом `#route-critical-style` (`index.html`). Для нового маршрута `ai-partner` исключение забыли добавить → секция оставалась `display:none !important` даже при `is-active`, экран был пустым. Добавлены `html[data-initial-view="ai-partner"] #view-ai-partner` в список исключений и ветка `ai-partner` в `route-guard.js` (для авторизованного → `ai-partner`, иначе → `auth`). При добавлении любого нового view нужно обновлять **оба** места.
+
+#### Фикс мигания шапки (feature-gated пункты)
+
+Пункты меню за фичефлагами (`data-ai-feature`, напр. «ИИ-соигрок») мигали при обновлении: критический CSS (`html[data-auth-state="user"]:not(.auth-resolved)`) показывал их на первом рендере, но `applyFeatureFlags()` на старте отрабатывал с дефолтным `aiEnabled:false` (до ответа `/settings`) и навешивал `is-hidden`; когда выставлялся `auth-resolved`, страховочное CSS отключалось → пункт схлопывался, а затем снова появлялся после `/settings`. Фикс: `featureFlags` оптимистично инициализируются из localStorage (`cofindFeatureFlags`, пишется в `hydrateFromApi` после `/settings`), поэтому первый `applyFeatureFlags()` уже знает реальный `aiEnabled` — пункт не схлопывается. Стартовое значение для нового браузера остаётся `false` (безопасно: эти пункты всё равно требуют входа).
