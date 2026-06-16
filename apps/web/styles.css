@@ -1070,7 +1070,13 @@ h2 {
   justify-content: space-between;
   gap: 18px;
   align-items: end;
-  margin: 24px 0;
+  margin: 12px 0 24px;
+}
+
+/* Route-path kickers ("/feed", "/chat", "/ai-partner"…) are a dev-style label
+   of little value to visitors and just add height — hide them on every page. */
+.page-heading .eyebrow {
+  display: none;
 }
 
 .page-heading h1 {
@@ -2962,6 +2968,7 @@ body.theme-writer {
   .page-heading {
     align-items: start;
     flex-direction: column;
+    margin-top: 6px;
   }
 
   .inbox-summary {
@@ -3028,7 +3035,7 @@ body.theme-writer {
 
   main {
     width: min(100% - 20px, 1180px);
-    padding-top: 14px;
+    padding-top: 8px;
   }
 
   .topbar {
