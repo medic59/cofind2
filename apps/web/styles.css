@@ -841,6 +841,15 @@ h2 {
   gap: 8px;
 }
 
+/* Keep the profile name on one line with a stable cap so the button (and the
+   whole flex header) doesn't reflow as the name/avatar resolve during boot. */
+.auth-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .header-inbox {
   position: relative;
 }

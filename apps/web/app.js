@@ -437,6 +437,8 @@ function setWsStatus() {
   wsStatus.classList.toggle("is-offline", !diag.ok);
 }
 
+let lastAuthButtonSig = null;
+
 function updateAuthUi() {
   if (!authButton) return;
   const profile = authSession.user?.profile || {};
@@ -447,9 +449,16 @@ function updateAuthUi() {
   authButton.setAttribute("href", isLoggedIn ? "/me" : "/auth");
   authButton.setAttribute("aria-label", isLoggedIn ? "Открыть личный кабинет" : "Войти");
   authButton.title = isLoggedIn ? "Личный кабинет" : "Войти";
-  authButton.innerHTML = isLoggedIn
-    ? `${avatarMarkup(name, profile.avatarUrl || "", "tiny")}<span>${escapeHtml(name)}</span>`
-    : "Войти";
+  // Only rewrite the button when its visible content actually changes. updateAuthUi
+  // runs several times during boot; re-setting innerHTML each call re-creates the
+  // avatar <img>, making it reload/blink and shifting the header. Guard against that.
+  const authSig = isLoggedIn ? `1|${name}|${profile.avatarUrl || ""}` : "0";
+  if (authSig !== lastAuthButtonSig) {
+    authButton.innerHTML = isLoggedIn
+      ? `${avatarMarkup(name, profile.avatarUrl || "", "tiny")}<span class="auth-name">${escapeHtml(name)}</span>`
+      : "Войти";
+    lastAuthButtonSig = authSig;
+  }
   document.querySelectorAll("[data-auth-feature]").forEach((element) => {
     element.classList.toggle("is-hidden", !isLoggedIn);
   });
@@ -2619,13 +2628,25 @@ function avatarMarkup(name, avatarUrl = "", classes = "") {
   const className = `avatar ${classes}`.trim();
   const safeName = escapeHtml(initialsFrom(name));
   const safeAvatar = safeAvatarUrl(avatarUrl);
-  if (!safeAvatar) return `<div class="${className}">${safeName}</div>`;
+  if (!safeAvatar) return `<div class="${className}" data-initials="${safeName}">${safeName}</div>`;
   const presetClass = safeAvatar.startsWith("gradient-") ? ` ${safeAvatar}` : "";
   const content = safeAvatar.startsWith("data:image/") || /^https?:\/\//i.test(safeAvatar)
     ? `<img src="${escapeHtml(safeAvatar)}" alt="" loading="lazy" decoding="async" />`
     : safeName;
-  return `<div class="${className}${presetClass}">${content}</div>`;
+  return `<div class="${className}${presetClass}" data-initials="${safeName}">${content}</div>`;
 }
+
+// Avatar images can fail (flaky CDN, deleted file). CSP forbids inline onerror,
+// so a single capture-phase listener swaps any failed avatar image for its
+// initials fallback (stored on the wrapper as data-initials). Catches the
+// non-bubbling <img> error for the whole document, including header/cards.
+document.addEventListener("error", (event) => {
+  const img = event.target;
+  const box = img && img.tagName === "IMG" ? img.parentElement : null;
+  if (box && box.classList.contains("avatar")) {
+    box.textContent = box.dataset.initials || "";
+  }
+}, true);
 
 function setAvatarElement(element, name, avatarUrl = "") {
   if (!element) return;
