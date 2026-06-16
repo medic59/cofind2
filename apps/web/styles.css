@@ -24,6 +24,10 @@
 
 html {
   scroll-behavior: smooth;
+  /* Always reserve space for the vertical scrollbar so switching between short
+     (no scroll) and long (scroll) pages/views doesn't shift the whole layout a
+     few px sideways. */
+  scrollbar-gutter: stable;
 }
 
 body {
