@@ -248,6 +248,71 @@ export class AdminService {
     });
   }
 
+  // Resolves a reported entity (entityType + entityId) into a readable content
+  // snapshot so moderators can see exactly what they are reviewing. entityId
+  // semantics mirror reports.service: ids for messages/listings, id-or-username
+  // for profiles, id-or-slug for catalog items.
+  async moderationTarget(typeRaw: string, id: string) {
+    const entityType = String(typeRaw || "").toUpperCase();
+    const who = (rel: { profile: { username: string; displayName: string } | null } | null) =>
+      rel?.profile?.displayName || rel?.profile?.username || "—";
+    const author = { select: { profile: { select: { username: true, displayName: true } } } };
+
+    if (entityType === "LISTING") {
+      const l = await this.prisma.listing.findUnique({
+        where: { id },
+        select: { id: true, title: true, body: true, slug: true, type: true, status: true, moderationStatus: true, ageRating: true, createdAt: true, author }
+      });
+      if (!l) return { kind: "missing", entityType };
+      return { kind: "listing", entityType, title: l.title, body: l.body, listingType: l.type, status: l.status, moderationStatus: l.moderationStatus, ageRating: l.ageRating, author: who(l.author), createdAt: l.createdAt, url: `/listing/${l.slug || l.id}` };
+    }
+    if (entityType === "GLOBAL_CHAT_MESSAGE") {
+      const m = await this.prisma.globalChatMessage.findUnique({
+        where: { id },
+        select: { id: true, text: true, room: true, isDeleted: true, createdAt: true, sender: author }
+      });
+      if (!m) return { kind: "missing", entityType };
+      return { kind: "message", entityType, text: m.text, room: m.room, isDeleted: m.isDeleted, author: who(m.sender), createdAt: m.createdAt };
+    }
+    if (entityType === "PRIVATE_MESSAGE") {
+      const m = await this.prisma.message.findUnique({
+        where: { id },
+        select: { id: true, text: true, isDeleted: true, createdAt: true, sender: author }
+      });
+      if (!m) return { kind: "missing", entityType };
+      return { kind: "message", entityType, text: m.text, isDeleted: m.isDeleted, author: who(m.sender), createdAt: m.createdAt, private: true };
+    }
+    if (entityType === "PROFILE") {
+      const u = await this.prisma.user.findFirst({
+        where: { OR: [{ id }, { profile: { username: id } }] },
+        select: { id: true, status: true, profile: { select: { username: true, displayName: true, bio: true, avatarUrl: true } } }
+      });
+      if (!u?.profile) return { kind: "missing", entityType };
+      return { kind: "profile", entityType, username: u.profile.username, displayName: u.profile.displayName, bio: u.profile.bio, avatarUrl: u.profile.avatarUrl, userStatus: u.status, url: `/profile/${u.profile.username}` };
+    }
+    if (entityType === "DRAWING") {
+      const d = await this.prisma.canvasDrawing.findUnique({
+        where: { id },
+        select: { id: true, imageUrl: true, width: true, height: true, createdAt: true, user: author }
+      });
+      if (!d) return { kind: "missing", entityType };
+      return { kind: "drawing", entityType, imageUrl: d.imageUrl, width: d.width, height: d.height, author: who(d.user), createdAt: d.createdAt };
+    }
+    if (entityType === "TAG") {
+      const t = await this.prisma.tag.findFirst({ where: { OR: [{ id }, { slug: id }] }, select: { name: true, slug: true, description: true, status: true } });
+      return t ? { kind: "catalog", entityType, name: t.name, slug: t.slug, description: t.description, status: t.status } : { kind: "missing", entityType };
+    }
+    if (entityType === "FANDOM") {
+      const f = await this.prisma.fandom.findFirst({ where: { OR: [{ id }, { slug: id }] }, select: { name: true, slug: true, description: true, status: true } });
+      return f ? { kind: "catalog", entityType, name: f.name, slug: f.slug, description: f.description, status: f.status } : { kind: "missing", entityType };
+    }
+    if (entityType === "CHARACTER") {
+      const c = await this.prisma.character.findFirst({ where: { OR: [{ id }, { slug: id }] }, select: { name: true, slug: true, description: true, status: true } });
+      return c ? { kind: "catalog", entityType, name: c.name, slug: c.slug, description: c.description, status: c.status } : { kind: "missing", entityType };
+    }
+    return { kind: "unknown", entityType };
+  }
+
   resolveReport(actorId: string, reportId: string, dto: ResolveReportDto) {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.report.findUnique({ where: { id: reportId }, select: { id: true, status: true } });

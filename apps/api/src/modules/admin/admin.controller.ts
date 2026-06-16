@@ -112,6 +112,11 @@ export class AdminController {
     return this.admin.resolveReport(user.id, id, dto);
   }
 
+  @Get("moderation/target/:type/:id")
+  moderationTarget(@Param("type") type: string, @Param("id") id: string) {
+    return this.admin.moderationTarget(type, id);
+  }
+
   @Get("suggestions")
   suggestions() {
     return this.admin.suggestions();

@@ -5638,7 +5638,7 @@ function renderAdminQueue({ reports = [], suggestions = [], listings: adminListi
   }
   tbody.innerHTML = visibleRows.map((row) => `
     <tr data-admin-row="${escapeHtml(row.id)}" data-admin-kind="${escapeHtml(row.kind)}">
-      <td>${escapeHtml(row.object)}</td>
+      <td><button type="button" class="admin-expand-toggle" data-admin-expand="${escapeHtml(row.id)}" aria-expanded="false" aria-label="Показать содержимое">▸</button> ${escapeHtml(row.object)}</td>
       <td>${escapeHtml(row.status)}</td>
       <td>${escapeHtml(row.reason)}</td>
       <td>
@@ -5647,7 +5647,124 @@ function renderAdminQueue({ reports = [], suggestions = [], listings: adminListi
         </div>
       </td>
     </tr>
+    <tr class="admin-detail-row is-hidden" data-admin-detail="${escapeHtml(row.id)}">
+      <td colspan="4"><div class="admin-detail" data-admin-detail-body="${escapeHtml(row.id)}"></div></td>
+    </tr>
   `).join("");
+}
+
+const MODERATION_KIND_LABELS = {
+  LISTING: "Заявка",
+  PROFILE: "Профиль",
+  PRIVATE_MESSAGE: "Личное сообщение",
+  GLOBAL_CHAT_MESSAGE: "Сообщение в чате",
+  DRAWING: "Рисунок",
+  TAG: "Тег",
+  FANDOM: "Фандом",
+  CHARACTER: "Персонаж",
+  COMMENT: "Комментарий"
+};
+
+function moderationKindLabel(entityType) {
+  return MODERATION_KIND_LABELS[entityType] || entityType || "Объект";
+}
+
+function moderationDetailText(text) {
+  const value = String(text || "").trim();
+  return value ? `<div class="admin-detail-text">${escapeHtml(value)}</div>` : `<p class="muted-note">(пусто)</p>`;
+}
+
+function profileFullName(rel) {
+  return rel?.profile?.displayName || rel?.profile?.username || "—";
+}
+
+function moderationTargetHtml(target) {
+  if (!target || target.kind === "missing") return `<p class="muted-note">Объект не найден или удалён.</p>`;
+  if (target.kind === "unknown") return `<p class="muted-note">Тип «${escapeHtml(target.entityType || "")}» не поддерживает предпросмотр.</p>`;
+  if (target.kind === "listing") {
+    return `<div class="admin-detail-block">
+      <p class="admin-detail-label">Заявка · ${escapeHtml(target.status)}/${escapeHtml(target.moderationStatus)} · ${escapeHtml(target.ageRating)} · автор ${escapeHtml(target.author)}</p>
+      <h4>${escapeHtml(target.title)}</h4>
+      ${moderationDetailText(target.body)}
+      ${target.url ? `<a class="secondary-button" href="${escapeHtml(target.url)}" target="_blank" rel="noopener">Открыть заявку ↗</a>` : ""}
+    </div>`;
+  }
+  if (target.kind === "message") {
+    const meta = [moderationKindLabel(target.entityType), `автор ${escapeHtml(target.author)}`];
+    if (target.room) meta.push(`#${escapeHtml(target.room)}`);
+    if (target.isDeleted) meta.push("удалено");
+    return `<div class="admin-detail-block">
+      <p class="admin-detail-label">${meta.join(" · ")}</p>
+      ${moderationDetailText(target.text)}
+    </div>`;
+  }
+  if (target.kind === "profile") {
+    return `<div class="admin-detail-block">
+      <p class="admin-detail-label">Профиль · @${escapeHtml(target.username)}${target.userStatus ? ` · ${escapeHtml(target.userStatus)}` : ""}</p>
+      <h4>${escapeHtml(target.displayName || target.username)}</h4>
+      ${target.bio ? moderationDetailText(target.bio) : `<p class="muted-note">Без описания.</p>`}
+      ${target.url ? `<a class="secondary-button" href="${escapeHtml(target.url)}" target="_blank" rel="noopener">Открыть профиль ↗</a>` : ""}
+    </div>`;
+  }
+  if (target.kind === "drawing") {
+    const safeImg = /^(https?:|data:image\/)/i.test(String(target.imageUrl || ""));
+    return `<div class="admin-detail-block">
+      <p class="admin-detail-label">Рисунок · автор ${escapeHtml(target.author)}</p>
+      ${safeImg ? `<img class="admin-detail-drawing" src="${escapeHtml(target.imageUrl)}" alt="Рисунок на модерации" />` : `<p class="muted-note">Изображение недоступно.</p>`}
+    </div>`;
+  }
+  if (target.kind === "catalog") {
+    return `<div class="admin-detail-block">
+      <p class="admin-detail-label">${moderationKindLabel(target.entityType)} · ${escapeHtml(target.status)}</p>
+      <h4>${escapeHtml(target.name)}</h4>
+      ${target.description ? moderationDetailText(target.description) : `<p class="muted-note">Без описания.</p>`}
+    </div>`;
+  }
+  return "";
+}
+
+async function renderModerationDetail(id, body) {
+  const { reports = [], suggestions = [], listings = [] } = adminQueueCache;
+  const report = reports.find((item) => item.id === id);
+  if (report) {
+    body.innerHTML = `
+      <div class="admin-detail-block">
+        <p class="admin-detail-label">Жалоба · ${escapeHtml(report.reason)} · от ${escapeHtml(profileFullName(report.reporter))}</p>
+        ${report.comment ? moderationDetailText(report.comment) : `<p class="muted-note">Жалобщик не оставил комментарий.</p>`}
+      </div>
+      <div class="admin-detail-target"><p class="muted-note">Загрузка объекта жалобы…</p></div>`;
+    try {
+      const target = await apiFetch(`/admin/moderation/target/${encodeURIComponent(report.entityType)}/${encodeURIComponent(report.entityId)}`);
+      const slot = body.querySelector(".admin-detail-target");
+      if (slot) slot.innerHTML = moderationTargetHtml(target);
+    } catch {
+      const slot = body.querySelector(".admin-detail-target");
+      if (slot) slot.innerHTML = `<p class="muted-note">Не удалось загрузить объект жалобы.</p>`;
+    }
+    return;
+  }
+  const suggestion = suggestions.find((item) => item.id === id);
+  if (suggestion) {
+    body.innerHTML = `<div class="admin-detail-block">
+      <p class="admin-detail-label">Предложение · ${escapeHtml(suggestion.type)} · от ${escapeHtml(profileFullName(suggestion.author))}</p>
+      <h4>${escapeHtml(suggestion.title)}</h4>
+      ${suggestion.description ? moderationDetailText(suggestion.description) : `<p class="muted-note">Без описания.</p>`}
+      ${suggestion.sourceUrl ? `<a class="secondary-button" href="${escapeHtml(suggestion.sourceUrl)}" target="_blank" rel="noopener">Источник ↗</a>` : ""}
+    </div>`;
+    return;
+  }
+  const listing = listings.find((item) => item.id === id);
+  if (listing) {
+    const href = listing.slug || listing.id;
+    body.innerHTML = `<div class="admin-detail-block">
+      <p class="admin-detail-label">Заявка · ${escapeHtml(listing.status)}/${escapeHtml(listing.moderationStatus)} · автор ${escapeHtml(profileFullName(listing.author))}</p>
+      <h4>${escapeHtml(listing.title)}</h4>
+      ${moderationDetailText(listing.body)}
+      ${href ? `<a class="secondary-button" href="/listing/${escapeHtml(href)}" target="_blank" rel="noopener">Открыть заявку ↗</a>` : ""}
+    </div>`;
+    return;
+  }
+  body.innerHTML = `<p class="muted-note">Нет данных для отображения.</p>`;
 }
 
 function renderAuditLog(items = []) {
@@ -8147,6 +8264,24 @@ document.querySelector("#private-messages")?.addEventListener("click", async (ev
 });
 
 document.querySelector("#admin-queue")?.addEventListener("click", async (event) => {
+  const expandBtn = event.target.closest("[data-admin-expand]");
+  if (expandBtn) {
+    const eid = expandBtn.dataset.adminExpand;
+    const sel = window.CSS?.escape ? CSS.escape(eid) : eid;
+    const detailRow = document.querySelector(`[data-admin-detail="${sel}"]`);
+    const body = document.querySelector(`[data-admin-detail-body="${sel}"]`);
+    if (!detailRow || !body) return;
+    const willOpen = detailRow.classList.contains("is-hidden");
+    detailRow.classList.toggle("is-hidden", !willOpen);
+    expandBtn.setAttribute("aria-expanded", String(willOpen));
+    expandBtn.textContent = willOpen ? "▾" : "▸";
+    if (willOpen && body.dataset.loaded !== "1") {
+      body.innerHTML = `<p class="muted-note">Загрузка…</p>`;
+      await renderModerationDetail(eid, body);
+      body.dataset.loaded = "1";
+    }
+    return;
+  }
   const button = event.target.closest("[data-admin-action]");
   if (!button) return;
   const id = button.dataset.adminId;
