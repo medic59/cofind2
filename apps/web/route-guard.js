@@ -39,6 +39,7 @@
     if (section === "privacy") return "privacy";
     if (section === "contacts") return "contacts";
     if (section === "reports") return isAuthenticated() ? "report" : "auth";
+    if (section === "ai-partner") return isAuthenticated() ? "ai-partner" : "auth";
 
     if (section === "admin") {
       if (!isAuthenticated()) return "auth";

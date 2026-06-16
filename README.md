@@ -465,3 +465,7 @@ docker exec -i deploy-postgres-1 pg_restore -U cofind -d cofind --clean --if-exi
 - Эндпоинты (OWNER): `GET /api/v1/admin/ai-config`, `PATCH /api/v1/admin/ai-config`. Пустой `apiKey` очищает ключ, отсутствующий — сохраняет текущий.
 - Приоритет: значение из БД важнее env. `resolveProvider()` читает конфиг из БД **на каждый запрос**, поэтому смена ключа/провайдера в админке применяется **без рестарта**. Если ключа нет нигде — работает Mock.
 - Переключатель «Провайдер по умолчанию» (Claude/OpenAI/DeepSeek/YandexGPT) + поля ключа/модели (и baseUrl / folderId где нужно) для каждого провайдера.
+
+#### Фикс пустого экрана `/ai-partner`
+
+Анти-FOUC скрывает все `.view` через `html[data-initial-view] .view { display:none !important }` и показывает нужную парным правилом-исключением в инлайновом `#route-critical-style` (`index.html`). Для нового маршрута `ai-partner` исключение забыли добавить → секция оставалась `display:none !important` даже при `is-active`, экран был пустым. Добавлены `html[data-initial-view="ai-partner"] #view-ai-partner` в список исключений и ветка `ai-partner` в `route-guard.js` (для авторизованного → `ai-partner`, иначе → `auth`). При добавлении любого нового view нужно обновлять **оба** места.
