@@ -6032,7 +6032,92 @@ async function loadAdminSettings() {
   } catch {
     renderAdminSettings(featureFlags);
   }
+  loadAdminAiConfig();
 }
+
+function renderAdminAiConfig(view) {
+  const providers = view?.providers || {};
+  const select = document.querySelector("#admin-ai-provider");
+  if (select) select.value = view?.defaultProvider || "anthropic";
+  const setStatus = (id, has) => {
+    const el = document.querySelector(id);
+    if (!el) return;
+    el.textContent = has ? "ключ задан" : "ключ не задан";
+    el.classList.toggle("is-set", Boolean(has));
+  };
+  const setVal = (id, value) => {
+    const el = document.querySelector(id);
+    if (el) el.value = value || "";
+  };
+  setStatus("#admin-ai-anthropic-status", providers.anthropic?.hasKey);
+  setStatus("#admin-ai-openai-status", providers.openai?.hasKey);
+  setStatus("#admin-ai-deepseek-status", providers.deepseek?.hasKey);
+  setStatus("#admin-ai-yandex-status", providers.yandex?.hasKey);
+  setVal("#admin-ai-anthropic-model", providers.anthropic?.model);
+  setVal("#admin-ai-openai-model", providers.openai?.model);
+  setVal("#admin-ai-openai-baseurl", providers.openai?.baseUrl);
+  setVal("#admin-ai-deepseek-model", providers.deepseek?.model);
+  setVal("#admin-ai-deepseek-baseurl", providers.deepseek?.baseUrl);
+  setVal("#admin-ai-yandex-folder", providers.yandex?.folderId);
+  setVal("#admin-ai-yandex-model", providers.yandex?.model);
+}
+
+async function loadAdminAiConfig() {
+  const section = document.querySelector("#admin-ai-config-section");
+  if (!section) return;
+  const status = document.querySelector("#admin-ai-config-status");
+  const saveButton = document.querySelector("#admin-ai-config-save");
+  const isOwner = authSession.user?.role === "OWNER";
+  if (!isOwner) {
+    if (status) status.textContent = "Управление ключами доступно только OWNER.";
+    if (saveButton) saveButton.disabled = true;
+    return;
+  }
+  if (saveButton) saveButton.disabled = false;
+  try {
+    renderAdminAiConfig(await apiFetch("/admin/ai-config"));
+    if (status) status.textContent = "";
+  } catch {
+    if (status) status.textContent = "";
+  }
+}
+
+document.querySelector("#admin-ai-config-save")?.addEventListener("click", async () => {
+  if (authSession.user?.role !== "OWNER") return;
+  const status = document.querySelector("#admin-ai-config-status");
+  const saveButton = document.querySelector("#admin-ai-config-save");
+  const val = (id) => (document.querySelector(id)?.value || "").trim();
+  const providerObject = (keyId, fields) => {
+    const obj = {};
+    const key = val(keyId);
+    if (key) obj.apiKey = key; // only send when typed — blank keeps the stored key
+    Object.entries(fields).forEach(([prop, id]) => { obj[prop] = val(id); });
+    return obj;
+  };
+  const payload = {
+    defaultProvider: document.querySelector("#admin-ai-provider")?.value || "anthropic",
+    anthropic: providerObject("#admin-ai-anthropic-key", { model: "#admin-ai-anthropic-model" }),
+    openai: providerObject("#admin-ai-openai-key", { model: "#admin-ai-openai-model", baseUrl: "#admin-ai-openai-baseurl" }),
+    deepseek: providerObject("#admin-ai-deepseek-key", { model: "#admin-ai-deepseek-model", baseUrl: "#admin-ai-deepseek-baseurl" }),
+    yandex: providerObject("#admin-ai-yandex-key", { folderId: "#admin-ai-yandex-folder", model: "#admin-ai-yandex-model" })
+  };
+  if (saveButton) saveButton.disabled = true;
+  if (status) status.textContent = "Сохранение…";
+  try {
+    renderAdminAiConfig(await apiFetch("/admin/ai-config", { method: "PATCH", body: JSON.stringify(payload) }));
+    ["#admin-ai-anthropic-key", "#admin-ai-openai-key", "#admin-ai-deepseek-key", "#admin-ai-yandex-key"].forEach((id) => {
+      const el = document.querySelector(id);
+      if (el) el.value = "";
+    });
+    if (status) status.textContent = "Сохранено.";
+    showToast("Настройки ИИ-провайдеров сохранены");
+  } catch (error) {
+    if (status) status.textContent = "";
+    showToast(apiFailure("Не удалось сохранить провайдеров", error));
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+  }
+});
 
 async function loadAdminSeoPages() {
   if (!authSession.accessToken || !["OWNER", "ADMIN"].includes(authSession.user?.role)) return;

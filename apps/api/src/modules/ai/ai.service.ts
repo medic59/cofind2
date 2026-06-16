@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException, ServiceUnavailableEx
 import { HttpException, HttpStatus } from "@nestjs/common";
 import { isAiEnabled } from "../../common/system-settings";
 import { PrismaService } from "../prisma/prisma.service";
+import { getEffectiveAiConfig } from "./ai-config";
 import { CreateRpSessionDto } from "./dto";
 import { AiMessage, AiProvider } from "./ai.types";
 import { AnthropicProvider } from "./providers/anthropic.provider";
@@ -14,18 +15,9 @@ const PROVIDER_ORDER = ["anthropic", "openai", "deepseek", "yandex"];
 
 @Injectable()
 export class AiService {
-  private readonly providers: Record<string, AiProvider>;
   private readonly mock = new MockProvider();
 
-  constructor(private readonly prisma: PrismaService) {
-    this.providers = {
-      anthropic: new AnthropicProvider(),
-      openai: new OpenAiCompatibleProvider("openai", "OPENAI_API_KEY", "OPENAI_MODEL", "gpt-4o-mini", "https://api.openai.com/v1", "OPENAI_BASE_URL"),
-      // DeepSeek is OpenAI-compatible — same class, different endpoint/key.
-      deepseek: new OpenAiCompatibleProvider("deepseek", "DEEPSEEK_API_KEY", "DEEPSEEK_MODEL", "deepseek-chat", "https://api.deepseek.com/v1", "DEEPSEEK_BASE_URL"),
-      yandex: new YandexProvider(),
-    };
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   private dailyLimit() {
     const n = Number(process.env.AI_DAILY_LIMIT || 20);
@@ -43,11 +35,20 @@ export class AiService {
 
   // Pick the configured default; fall back to any other configured provider; if
   // nothing has a key, fall back to the mock so the feature is still testable.
-  resolveProvider(): AiProvider {
-    const preferred = (process.env.AI_DEFAULT_PROVIDER || "anthropic").toLowerCase();
+  // Config (keys/models/default) is resolved per call from the DB (admin-managed)
+  // over env, so changes in the admin panel take effect without a restart.
+  async resolveProvider(): Promise<AiProvider> {
+    const cfg = await getEffectiveAiConfig(this.prisma);
+    const providers: Record<string, AiProvider> = {
+      anthropic: new AnthropicProvider(cfg.anthropic),
+      openai: new OpenAiCompatibleProvider("openai", cfg.openai),
+      deepseek: new OpenAiCompatibleProvider("deepseek", cfg.deepseek),
+      yandex: new YandexProvider(cfg.yandex),
+    };
+    const preferred = (cfg.defaultProvider || "anthropic").toLowerCase();
     const ordered = [preferred, ...PROVIDER_ORDER.filter((p) => p !== preferred)];
     for (const name of ordered) {
-      const provider = this.providers[name];
+      const provider = providers[name];
       if (provider?.isConfigured()) return provider;
     }
     return this.mock;
@@ -79,7 +80,7 @@ export class AiService {
     const used = enabled ? await this.usageCount(userId, "all") : 0;
     return {
       enabled,
-      provider: enabled ? this.resolveProvider().name : null,
+      provider: enabled ? (await this.resolveProvider()).name : null,
       dailyLimit: limit,
       remaining: Math.max(0, limit - used),
     };
@@ -97,7 +98,7 @@ export class AiService {
 
   async generateListingDraft(userId: string, input: { prompt: string; type?: string }) {
     await this.guard(userId, "all", this.dailyLimit());
-    const provider = this.resolveProvider();
+    const provider = await this.resolveProvider();
     const system =
       "Ты — помощник творческой платформы Cofind 2 (поиск соавторов, соигроков и творческих партнёров " +
       "для фанфиков, ролевых игр и совместного письма). По короткому запросу автора составь черновик заявки " +
@@ -226,7 +227,7 @@ export class AiService {
     // Best-effort opening move from the AI to set the scene.
     try {
       await this.guard(userId, "rp", this.rpDailyLimit());
-      const provider = this.resolveProvider();
+      const provider = await this.resolveProvider();
       const result = await provider.complete({
         system: this.buildRpSystemPrompt(session),
         messages: [{ role: "user", content: "Начни сцену: задай атмосферу и сделай первый ход за своего персонажа. Не отвечай за меня." }],
@@ -257,7 +258,7 @@ export class AiService {
     // Keep the last 20 turns to bound token cost.
     const recent: AiMessage[] = history.slice(-20).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 
-    const provider = this.resolveProvider();
+    const provider = await this.resolveProvider();
     let result;
     try {
       result = await provider.complete({

@@ -17,7 +17,8 @@ import {
   UpsertCatalogItemDto,
   UpsertSeoPageDto,
   UpsertSubscriptionPlanDto,
-  UpdateAdminSettingsDto
+  UpdateAdminSettingsDto,
+  UpdateAiConfigDto
 } from "./dto";
 
 const staffRoles = [UserRole.ADMIN, UserRole.OWNER, UserRole.MODERATOR];
@@ -45,6 +46,18 @@ export class AdminController {
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   updateSettings(@CurrentUser() user: RequestUser, @Body() dto: UpdateAdminSettingsDto) {
     return this.admin.updateSettings(user.id, dto);
+  }
+
+  @Get("ai-config")
+  @Roles(UserRole.OWNER)
+  aiConfig() {
+    return this.admin.aiConfig();
+  }
+
+  @Patch("ai-config")
+  @Roles(UserRole.OWNER)
+  updateAiConfig(@CurrentUser() user: RequestUser, @Body() dto: UpdateAiConfigDto) {
+    return this.admin.updateAiConfig(user.id, dto);
   }
 
   @Get("users")

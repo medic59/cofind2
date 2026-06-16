@@ -5,24 +5,18 @@ import { postJson } from "./fetch-json";
 export class AnthropicProvider implements AiProvider {
   readonly name = "anthropic";
 
-  private get apiKey() {
-    return process.env.ANTHROPIC_API_KEY || "";
-  }
-
-  private get model() {
-    return process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
-  }
+  constructor(private readonly config: { apiKey: string; model: string }) {}
 
   isConfigured() {
-    return Boolean(this.apiKey);
+    return Boolean(this.config.apiKey);
   }
 
   async complete(options: AiCompletionOptions): Promise<AiCompletionResult> {
     const data = await postJson(
       "https://api.anthropic.com/v1/messages",
-      { "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" },
+      { "x-api-key": this.config.apiKey, "anthropic-version": "2023-06-01" },
       {
-        model: this.model,
+        model: this.config.model,
         max_tokens: options.maxTokens ?? 1024,
         temperature: options.temperature ?? 0.7,
         system: options.system,
@@ -33,6 +27,6 @@ export class AnthropicProvider implements AiProvider {
     const text = Array.isArray(data?.content)
       ? data.content.filter((b: any) => b?.type === "text").map((b: any) => b.text).join("")
       : "";
-    return { text: String(text || ""), provider: this.name, model: this.model };
+    return { text: String(text || ""), provider: this.name, model: this.config.model };
   }
 }

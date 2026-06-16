@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, ReportStatus, SuggestionStatus, UserRole, UserStatus } from "@prisma/client";
 import { publicFeatureFlags, setAiEnabled, setMonetizationEnabled } from "../../common/system-settings";
+import { getAiConfigView, updateAiConfig as applyAiConfig } from "../ai/ai-config";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   ModerateListingDto,
@@ -13,7 +14,8 @@ import {
   UpsertCatalogItemDto,
   UpsertSeoPageDto,
   UpsertSubscriptionPlanDto,
-  UpdateAdminSettingsDto
+  UpdateAdminSettingsDto,
+  UpdateAiConfigDto
 } from "./dto";
 
 @Injectable()
@@ -58,6 +60,27 @@ export class AdminService {
         }
       });
       return publicFeatureFlags(tx);
+    });
+  }
+
+  aiConfig() {
+    return getAiConfigView(this.prisma);
+  }
+
+  updateAiConfig(actorId: string, dto: UpdateAiConfigDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await applyAiConfig(tx, dto);
+      await tx.auditLog.create({
+        data: {
+          actorId,
+          action: "UPDATE_AI_CONFIG",
+          entityType: "SYSTEM_SETTING",
+          entityId: "ai.providers",
+          // Never log the keys themselves — only which provider is default.
+          metadata: { defaultProvider: result.defaultProvider }
+        }
+      });
+      return result;
     });
   }
 
