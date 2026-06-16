@@ -466,6 +466,11 @@ docker exec -i deploy-postgres-1 pg_restore -U cofind -d cofind --clean --if-exi
 - Приоритет: значение из БД важнее env. `resolveProvider()` читает конфиг из БД **на каждый запрос**, поэтому смена ключа/провайдера в админке применяется **без рестарта**. Если ключа нет нигде — работает Mock.
 - Переключатель «Провайдер по умолчанию» (Claude/OpenAI/DeepSeek/YandexGPT) + поля ключа/модели (и baseUrl / folderId где нужно) для каждого провайдера.
 
+#### Расход токенов и баланс счёта (в карточке провайдера)
+
+- **Расход токенов** отдают все четыре API (`usage` в ответе). Адаптеры парсят его, а `recordProviderUsage` (`ai/ai-usage-stats.ts`) копит суммарно по провайдеру в одном JSON-`SystemSetting` (`ai.usage`): запросы, входные/выходные/всего токенов, `lastUsedAt`. Накопление — best-effort (никогда не валит ИИ-запрос). Суммы включены в `GET /api/v1/admin/ai-config` (`usage`) и показаны строкой в каждой карточке.
+- **Баланс по API-ключу** реально отдаёт только **DeepSeek** (`GET https://api.deepseek.com/user/balance`). Для Anthropic / OpenAI / YandexGPT баланс доступен лишь в их консоли/биллинге — `GET /api/v1/admin/ai-config/balance/:provider` (OWNER) возвращает `{ supported:false, reason, consoleUrl }`. Кнопка «Проверить баланс» в карточке делает живой запрос (`ai/ai-balance.ts`); ключи при этом не покидают сервер.
+
 #### Фикс пустого экрана `/ai-partner`
 
 Анти-FOUC скрывает все `.view` через `html[data-initial-view] .view { display:none !important }` и показывает нужную парным правилом-исключением в инлайновом `#route-critical-style` (`index.html`). Для нового маршрута `ai-partner` исключение забыли добавить → секция оставалась `display:none !important` даже при `is-active`, экран был пустым. Добавлены `html[data-initial-view="ai-partner"] #view-ai-partner` в список исключений и ветка `ai-partner` в `route-guard.js` (для авторизованного → `ai-partner`, иначе → `auth`). При добавлении любого нового view нужно обновлять **оба** места.

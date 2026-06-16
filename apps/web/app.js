@@ -6060,6 +6060,19 @@ function renderAdminAiConfig(view) {
   setVal("#admin-ai-deepseek-baseurl", providers.deepseek?.baseUrl);
   setVal("#admin-ai-yandex-folder", providers.yandex?.folderId);
   setVal("#admin-ai-yandex-model", providers.yandex?.model);
+  const usage = view?.usage || {};
+  ["anthropic", "openai", "deepseek", "yandex"].forEach((name) => {
+    const el = document.querySelector(`#admin-ai-${name}-usage`);
+    if (!el) return;
+    const u = usage[name];
+    el.textContent = u && u.requests
+      ? `Израсходовано токенов: ${formatNumber(u.totalTokens)} (вход ${formatNumber(u.inputTokens)} · выход ${formatNumber(u.outputTokens)}) за ${formatNumber(u.requests)} запр.`
+      : "Расход токенов: пока нет данных";
+  });
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("ru-RU");
 }
 
 async function loadAdminAiConfig() {
@@ -6116,6 +6129,34 @@ document.querySelector("#admin-ai-config-save")?.addEventListener("click", async
     showToast(apiFailure("Не удалось сохранить провайдеров", error));
   } finally {
     if (saveButton) saveButton.disabled = false;
+  }
+});
+
+function formatAiBalance(r) {
+  if (!r) return "";
+  if (!r.supported) return r.reason || "Баланс по API-ключу недоступен.";
+  if (!r.available) return r.reason || "Баланс недоступен.";
+  const parts = (r.balances || []).map((b) => `${b.total} ${b.currency}`.trim()).filter(Boolean);
+  const sum = parts.length ? parts.join(", ") : "—";
+  return `Баланс: ${sum}${r.isAvailable === false ? " (счёт недоступен)" : ""}`;
+}
+
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest?.("[data-ai-balance]");
+  if (!btn) return;
+  if (authSession.user?.role !== "OWNER") return;
+  const provider = btn.dataset.aiBalance;
+  const out = document.querySelector(`#admin-ai-${provider}-balance`);
+  btn.disabled = true;
+  if (out) out.textContent = "Проверяем…";
+  try {
+    const result = await apiFetch(`/admin/ai-config/balance/${encodeURIComponent(provider)}`);
+    if (out) out.textContent = formatAiBalance(result);
+  } catch (error) {
+    if (out) out.textContent = "";
+    showToast(apiFailure("Не удалось получить баланс", error));
+  } finally {
+    btn.disabled = false;
   }
 });
 

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma, ReportStatus, SuggestionStatus, UserRole, UserStatus } from "@prisma/client";
 import { publicFeatureFlags, setAiEnabled, setMonetizationEnabled } from "../../common/system-settings";
 import { getAiConfigView, updateAiConfig as applyAiConfig } from "../ai/ai-config";
+import { fetchProviderBalance } from "../ai/ai-balance";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   ModerateListingDto,
@@ -82,6 +83,10 @@ export class AdminService {
       });
       return result;
     });
+  }
+
+  aiBalance(provider: string) {
+    return fetchProviderBalance(this.prisma, provider);
   }
 
   users() {

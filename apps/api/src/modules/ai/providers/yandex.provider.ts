@@ -32,6 +32,15 @@ export class YandexProvider implements AiProvider {
       options.timeoutMs,
     );
     const text = data?.result?.alternatives?.[0]?.message?.text ?? "";
-    return { text: String(text || ""), provider: this.name, model: this.config.model };
+    const usage = data?.result?.usage;
+    const inputTokens = Number(usage?.inputTextTokens) || 0;
+    const outputTokens = Number(usage?.completionTokens) || 0;
+    const totalTokens = Number(usage?.totalTokens) || inputTokens + outputTokens;
+    return {
+      text: String(text || ""),
+      provider: this.name,
+      model: this.config.model,
+      usage: { inputTokens, outputTokens, totalTokens },
+    };
   }
 }

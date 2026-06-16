@@ -20,10 +20,19 @@ export interface AiCompletionOptions {
   timeoutMs?: number;
 }
 
+// Token usage reported by the provider for a single completion. All four real
+// providers return this; we accumulate it per-provider for the owner panel.
+export interface AiTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
 export interface AiCompletionResult {
   text: string;
   provider: string;
   model: string;
+  usage?: AiTokenUsage;
 }
 
 export interface AiProvider {

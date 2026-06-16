@@ -31,3 +31,30 @@ export async function postJson(
     clearTimeout(timer);
   }
 }
+
+// GET variant — used for provider account endpoints (e.g. DeepSeek balance).
+export async function getJson(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs = 15_000,
+): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { method: "GET", headers: { accept: "application/json", ...headers }, signal: controller.signal });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`upstream ${response.status}: ${text.slice(0, 300)}`);
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`upstream returned non-JSON: ${text.slice(0, 200)}`);
+    }
+  } catch (error: any) {
+    if (error?.name === "AbortError") throw new Error(`upstream timeout after ${timeoutMs}ms`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}

@@ -31,6 +31,14 @@ export class OpenAiCompatibleProvider implements AiProvider {
       options.timeoutMs,
     );
     const text = data?.choices?.[0]?.message?.content ?? "";
-    return { text: String(text || ""), provider: this.name, model: this.config.model };
+    const inputTokens = Number(data?.usage?.prompt_tokens) || 0;
+    const outputTokens = Number(data?.usage?.completion_tokens) || 0;
+    const totalTokens = Number(data?.usage?.total_tokens) || inputTokens + outputTokens;
+    return {
+      text: String(text || ""),
+      provider: this.name,
+      model: this.config.model,
+      usage: { inputTokens, outputTokens, totalTokens },
+    };
   }
 }

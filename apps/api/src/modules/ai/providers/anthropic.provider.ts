@@ -27,6 +27,13 @@ export class AnthropicProvider implements AiProvider {
     const text = Array.isArray(data?.content)
       ? data.content.filter((b: any) => b?.type === "text").map((b: any) => b.text).join("")
       : "";
-    return { text: String(text || ""), provider: this.name, model: this.config.model };
+    const inputTokens = Number(data?.usage?.input_tokens) || 0;
+    const outputTokens = Number(data?.usage?.output_tokens) || 0;
+    return {
+      text: String(text || ""),
+      provider: this.name,
+      model: this.config.model,
+      usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+    };
   }
 }

@@ -1175,24 +1175,32 @@
               <h3>Claude (Anthropic) <span class="ai-key-status" id="admin-ai-anthropic-status"></span></h3>
               <label>API-ключ<input id="admin-ai-anthropic-key" type="password" autocomplete="off" placeholder="sk-ant-..." /></label>
               <label>Модель<input id="admin-ai-anthropic-model" placeholder="claude-sonnet-4-6" /></label>
+              <p class="ai-usage" id="admin-ai-anthropic-usage"></p>
+              <div class="ai-balance"><button class="ghost-button" type="button" data-ai-balance="anthropic">Проверить баланс</button><span class="ai-balance-result" id="admin-ai-anthropic-balance"></span></div>
             </div>
             <div class="ai-provider-card">
               <h3>ChatGPT (OpenAI) <span class="ai-key-status" id="admin-ai-openai-status"></span></h3>
               <label>API-ключ<input id="admin-ai-openai-key" type="password" autocomplete="off" placeholder="sk-..." /></label>
               <label>Модель<input id="admin-ai-openai-model" placeholder="gpt-4o-mini" /></label>
               <label>Base URL<input id="admin-ai-openai-baseurl" placeholder="https://api.openai.com/v1" /></label>
+              <p class="ai-usage" id="admin-ai-openai-usage"></p>
+              <div class="ai-balance"><button class="ghost-button" type="button" data-ai-balance="openai">Проверить баланс</button><span class="ai-balance-result" id="admin-ai-openai-balance"></span></div>
             </div>
             <div class="ai-provider-card">
               <h3>DeepSeek <span class="ai-key-status" id="admin-ai-deepseek-status"></span></h3>
               <label>API-ключ<input id="admin-ai-deepseek-key" type="password" autocomplete="off" placeholder="sk-..." /></label>
               <label>Модель<input id="admin-ai-deepseek-model" placeholder="deepseek-chat" /></label>
               <label>Base URL<input id="admin-ai-deepseek-baseurl" placeholder="https://api.deepseek.com/v1" /></label>
+              <p class="ai-usage" id="admin-ai-deepseek-usage"></p>
+              <div class="ai-balance"><button class="ghost-button" type="button" data-ai-balance="deepseek">Проверить баланс</button><span class="ai-balance-result" id="admin-ai-deepseek-balance"></span></div>
             </div>
             <div class="ai-provider-card">
               <h3>YandexGPT (Алиса) <span class="ai-key-status" id="admin-ai-yandex-status"></span></h3>
               <label>API-ключ<input id="admin-ai-yandex-key" type="password" autocomplete="off" placeholder="AQVN..." /></label>
               <label>Folder ID<input id="admin-ai-yandex-folder" placeholder="b1g..." /></label>
               <label>Модель<input id="admin-ai-yandex-model" placeholder="yandexgpt/latest" /></label>
+              <p class="ai-usage" id="admin-ai-yandex-usage"></p>
+              <div class="ai-balance"><button class="ghost-button" type="button" data-ai-balance="yandex">Проверить баланс</button><span class="ai-balance-result" id="admin-ai-yandex-balance"></span></div>
             </div>
             <button class="secondary-button" id="admin-ai-config-save" type="button">Сохранить провайдеров ИИ</button>
             <p class="muted-note" id="admin-ai-config-status"></p>

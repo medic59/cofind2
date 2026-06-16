@@ -3,8 +3,9 @@ import { HttpException, HttpStatus } from "@nestjs/common";
 import { isAiEnabled } from "../../common/system-settings";
 import { PrismaService } from "../prisma/prisma.service";
 import { getEffectiveAiConfig } from "./ai-config";
+import { recordProviderUsage } from "./ai-usage-stats";
 import { CreateRpSessionDto } from "./dto";
-import { AiMessage, AiProvider } from "./ai.types";
+import { AiCompletionResult, AiMessage, AiProvider } from "./ai.types";
 import { AnthropicProvider } from "./providers/anthropic.provider";
 import { MockProvider } from "./providers/mock.provider";
 import { OpenAiCompatibleProvider } from "./providers/openai-compatible.provider";
@@ -74,6 +75,11 @@ export class AiService {
     });
   }
 
+  // Accumulate provider-reported token usage for the owner panel (best-effort).
+  private async recordTokens(result: AiCompletionResult) {
+    await recordProviderUsage(this.prisma, result.provider, result.usage);
+  }
+
   async status(userId: string) {
     const enabled = await this.isEnabled();
     const limit = this.dailyLimit();
@@ -124,6 +130,7 @@ export class AiService {
     }
 
     await this.recordUsage(userId, "all");
+    await this.recordTokens(result);
     const draft = this.parseDraft(result.text);
     return { ...draft, provider: result.provider, model: result.model };
   }
@@ -238,6 +245,7 @@ export class AiService {
       if (result.text.trim()) {
         await this.prisma.aiRpMessage.create({ data: { sessionId: session.id, role: "assistant", content: result.text.trim() } });
         await this.recordUsage(userId, "rp");
+        await this.recordTokens(result);
       }
     } catch {
       // opening is optional — the session is still usable without it
@@ -279,6 +287,7 @@ export class AiService {
     // Touch the session so it sorts to the top of the list (@updatedAt bumps on update).
     await this.prisma.aiRpSession.update({ where: { id }, data: { title: session.title } });
     await this.recordUsage(userId, "rp");
+    await this.recordTokens(result);
     return reply;
   }
 

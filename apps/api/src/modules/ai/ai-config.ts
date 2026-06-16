@@ -1,5 +1,6 @@
 import { decryptSecret, encryptSecret } from "../../common/secret-box";
 import { PrismaService } from "../prisma/prisma.service";
+import { getUsageStats } from "./ai-usage-stats";
 
 // AI provider config is stored in a single SystemSetting row (JSON). API keys
 // are kept encrypted (secret-box) and never returned to clients. Effective config
@@ -71,8 +72,12 @@ export async function getEffectiveAiConfig(prisma: SettingsClient): Promise<Effe
 export async function getAiConfigView(prisma: SettingsClient) {
   const s = await loadStored(prisma);
   const eff = await getEffectiveAiConfig(prisma);
+  const usage = await getUsageStats(prisma);
   return {
     defaultProvider: eff.defaultProvider,
+    // Provider that exposes account balance over its API key (DeepSeek only).
+    balanceProviders: ["deepseek"],
+    usage,
     providers: {
       anthropic: { hasKey: Boolean(s.anthropic?.apiKey || process.env.ANTHROPIC_API_KEY), model: eff.anthropic.model },
       openai: { hasKey: Boolean(s.openai?.apiKey || process.env.OPENAI_API_KEY), model: eff.openai.model, baseUrl: eff.openai.baseUrl },

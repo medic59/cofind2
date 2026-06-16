@@ -3845,3 +3845,23 @@ html[data-auth-state="user"]:not(.auth-resolved) #auth-button * {
 .ai-key-status.is-set {
   color: var(--accent-2, #2f7d63);
 }
+.ai-usage {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.ai-balance {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ai-balance .ghost-button {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+}
+.ai-balance-result {
+  font-size: 0.8rem;
+  color: var(--muted);
+}

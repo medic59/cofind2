@@ -60,6 +60,12 @@ export class AdminController {
     return this.admin.updateAiConfig(user.id, dto);
   }
 
+  @Get("ai-config/balance/:provider")
+  @Roles(UserRole.OWNER)
+  aiBalance(@Param("provider") provider: string) {
+    return this.admin.aiBalance(provider);
+  }
+
   @Get("users")
   users() {
     return this.admin.users();
