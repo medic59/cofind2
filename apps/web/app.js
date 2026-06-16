@@ -2630,21 +2630,24 @@ function avatarMarkup(name, avatarUrl = "", classes = "") {
   const safeAvatar = safeAvatarUrl(avatarUrl);
   if (!safeAvatar) return `<div class="${className}" data-initials="${safeName}">${safeName}</div>`;
   const presetClass = safeAvatar.startsWith("gradient-") ? ` ${safeAvatar}` : "";
-  const content = safeAvatar.startsWith("data:image/") || /^https?:\/\//i.test(safeAvatar)
-    ? `<img src="${escapeHtml(safeAvatar)}" alt="" loading="lazy" decoding="async" />`
+  const isImage = safeAvatar.startsWith("data:image/") || /^https?:\/\//i.test(safeAvatar);
+  // Initials stay in the box; the photo overlays them (absolutely positioned, out
+  // of flow). So while it loads — or if it fails and is removed — the box never
+  // flashes empty and never changes size, so the header doesn't twitch.
+  const inner = isImage
+    ? `${safeName}<img class="avatar-photo" src="${escapeHtml(safeAvatar)}" alt="" loading="lazy" decoding="async" />`
     : safeName;
-  return `<div class="${className}${presetClass}" data-initials="${safeName}">${content}</div>`;
+  return `<div class="${className}${presetClass}" data-initials="${safeName}">${inner}</div>`;
 }
 
 // Avatar images can fail (flaky CDN, deleted file). CSP forbids inline onerror,
-// so a single capture-phase listener swaps any failed avatar image for its
-// initials fallback (stored on the wrapper as data-initials). Catches the
-// non-bubbling <img> error for the whole document, including header/cards.
+// so a single capture-phase listener removes any failed avatar photo — the
+// initials underneath stay visible. Catches the non-bubbling <img> error for the
+// whole document (header, cards, profiles).
 document.addEventListener("error", (event) => {
   const img = event.target;
-  const box = img && img.tagName === "IMG" ? img.parentElement : null;
-  if (box && box.classList.contains("avatar")) {
-    box.textContent = box.dataset.initials || "";
+  if (img && img.tagName === "IMG" && img.classList.contains("avatar-photo")) {
+    img.remove();
   }
 }, true);
 
@@ -2654,10 +2657,14 @@ function setAvatarElement(element, name, avatarUrl = "") {
     .split(" ")
     .filter((item) => !item.startsWith("gradient-"))
     .join(" ");
+  const safeName = escapeHtml(initialsFrom(name));
+  element.dataset.initials = safeName;
   const safeAvatar = safeAvatarUrl(avatarUrl);
-  element.innerHTML = safeAvatar && (safeAvatar.startsWith("data:image/") || /^https?:\/\//i.test(safeAvatar))
-    ? `<img src="${escapeHtml(safeAvatar)}" alt="" loading="lazy" decoding="async" />`
-    : escapeHtml(initialsFrom(name));
+  const isImage = safeAvatar && (safeAvatar.startsWith("data:image/") || /^https?:\/\//i.test(safeAvatar));
+  // Same layered approach as avatarMarkup: initials underneath, photo overlay.
+  element.innerHTML = isImage
+    ? `${safeName}<img class="avatar-photo" src="${escapeHtml(safeAvatar)}" alt="" loading="lazy" decoding="async" />`
+    : safeName;
   if (safeAvatar?.startsWith("gradient-")) element.classList.add(safeAvatar);
 }
 

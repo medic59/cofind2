@@ -781,6 +781,8 @@ h2 {
 }
 
 .avatar {
+  position: relative;
+  overflow: hidden;
   display: grid;
   flex: 0 0 auto;
   width: 42px;
@@ -813,9 +815,12 @@ h2 {
 }
 
 .avatar img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
 }
 
 .avatar.gradient-mint {
@@ -841,13 +846,20 @@ h2 {
   gap: 8px;
 }
 
-/* Keep the profile name on one line with a stable cap so the button (and the
-   whole flex header) doesn't reflow as the name/avatar resolve during boot. */
+/* Fixed-width profile button: same width as the loading skeleton, so revealing
+   the avatar+name doesn't resize the button or shift its contents (no twitch).
+   The name fills the remaining space and ellipsizes if long. */
+#auth-button[data-view-link="me"] {
+  width: 150px;
+  justify-content: flex-start;
+}
 .auth-name {
-  max-width: 120px;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
 .header-inbox {
@@ -3442,7 +3454,7 @@ html[data-auth-state="user"]:not(.auth-resolved) [data-auth-feature]:not([data-p
    so the «Войти» label never flashes for a logged-in visitor. */
 html[data-auth-state="user"]:not(.auth-resolved) #auth-button {
   color: transparent !important;
-  min-width: 132px;
+  width: 150px;
   border-radius: var(--radius);
   background: linear-gradient(90deg, var(--surface-strong) 25%, var(--line) 37%, var(--surface-strong) 63%) !important;
   background-size: 400% 100% !important;
