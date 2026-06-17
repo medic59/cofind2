@@ -30,6 +30,13 @@ export class AiService {
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 50;
   }
 
+  // Free (non-premium) players get a smaller daily allowance of AI replies in the
+  // co-player game; premium keeps the full rpDailyLimit().
+  private rpFreeDailyLimit() {
+    const n = Number(process.env.AI_RP_FREE_DAILY_LIMIT || 7);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 7;
+  }
+
   isEnabled() {
     return isAiEnabled(this.prisma);
   }
@@ -99,6 +106,26 @@ export class AiService {
     const used = await this.usageCount(userId, feature);
     if (used >= limit) {
       throw new HttpException("Дневной лимит ИИ-запросов исчерпан. Попробуйте завтра.", HttpStatus.TOO_MANY_REQUESTS);
+    }
+  }
+
+  // RP daily guard with a premium-aware limit: non-premium players are capped at
+  // rpFreeDailyLimit() AI replies per day, premium at rpDailyLimit().
+  private async guardRp(userId: string) {
+    if (!(await this.isEnabled())) {
+      throw new ForbiddenException("AI features are disabled");
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isPremium: true } });
+    const isPremium = Boolean(user?.isPremium);
+    const limit = isPremium ? this.rpDailyLimit() : this.rpFreeDailyLimit();
+    const used = await this.usageCount(userId, "rp");
+    if (used >= limit) {
+      throw new HttpException(
+        isPremium
+          ? "Дневной лимит ответов ИИ-соигрока исчерпан. Попробуйте завтра."
+          : `Бесплатно доступно ${limit} ответов ИИ-соигрока в день. Лимит исчерпан — продолжите завтра или оформите премиум.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 
@@ -233,7 +260,7 @@ export class AiService {
     });
     // Best-effort opening move from the AI to set the scene.
     try {
-      await this.guard(userId, "rp", this.rpDailyLimit());
+      await this.guardRp(userId);
       const provider = await this.resolveProvider();
       const result = await provider.complete({
         system: this.buildRpSystemPrompt(session),
@@ -254,7 +281,7 @@ export class AiService {
   }
 
   async sendRpMessage(userId: string, id: string, content: string) {
-    await this.guard(userId, "rp", this.rpDailyLimit());
+    await this.guardRp(userId);
     const session = await this.findOwnedSession(userId, id);
     await this.prisma.aiRpMessage.create({ data: { sessionId: id, role: "user", content } });
 
