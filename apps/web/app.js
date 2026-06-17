@@ -7686,13 +7686,44 @@ document.querySelector("#ai-draft-button")?.addEventListener("click", async () =
 
 // ---- ИИ-соигрок (RP with an AI partner) ----
 let rpCurrentSessionId = null;
+let rpStatus = null;
 
 async function loadRpSessions() {
   if (!aiEnabled() || !authSession.accessToken) return;
+  loadRpStatus();
   try {
     renderRpSessions(await apiFetch("/ai/rp/sessions"));
   } catch {
     renderRpSessions([]);
+  }
+}
+
+// Fetch the per-user RP allowance (premium-aware) so we can hide the composer
+// and show a limit notice instead of letting the user type into a dead end.
+async function loadRpStatus() {
+  if (!authSession.accessToken) { rpStatus = null; applyRpComposerLimit(); return; }
+  try {
+    rpStatus = await apiFetch("/ai/status");
+  } catch {
+    rpStatus = null;
+  }
+  applyRpComposerLimit();
+}
+
+function applyRpComposerLimit() {
+  const form = document.querySelector("#rp-message-form");
+  const note = document.querySelector("#rp-message-status");
+  if (!form || !note) return;
+  const rp = rpStatus?.rp;
+  const limited = Boolean(rpStatus && rpStatus.enabled !== false && rp && rp.remaining <= 0);
+  form.classList.toggle("is-hidden", limited);
+  note.classList.toggle("rp-limit-note", limited);
+  if (limited) {
+    note.textContent = rpStatus.isPremium
+      ? `Дневной лимит ответов ИИ-соигрока исчерпан (${rp.limit}/день). Продолжите завтра.`
+      : `Лимит бесплатных ответов на сегодня исчерпан (${rp.limit} в день). Продолжите завтра или оформите премиум.`;
+  } else {
+    note.textContent = "ИИ-партнёр отвечает в образе. Это не реальный человек.";
   }
 }
 
@@ -7734,6 +7765,7 @@ function rpOpenConversation(session, messages) {
   if (title) title.textContent = session.title || "Сессия";
   rpRenderMessages(messages || []);
   document.querySelectorAll("[data-rp-open]").forEach((element) => element.classList.toggle("is-active", element.dataset.rpOpen === session.id));
+  applyRpComposerLimit();
 }
 
 async function openRpSession(id) {
@@ -7796,6 +7828,7 @@ document.querySelector("#rp-persona-form")?.addEventListener("submit", async (ev
     document.querySelector("#rp-persona-form")?.reset();
     await loadRpSessions();
     rpOpenConversation(data.session, data.messages);
+    loadRpStatus();
   } catch (error) {
     if (status) status.textContent = "";
     showToast(apiFailure("Не удалось создать сессию", error));
@@ -7826,10 +7859,11 @@ document.querySelector("#rp-message-form")?.addEventListener("submit", async (ev
       box.insertAdjacentHTML("beforeend", rpMessageHtml(reply));
       box.scrollTop = box.scrollHeight;
     }
-    if (status) status.textContent = "ИИ-партнёр отвечает в образе. Это не реальный человек.";
+    loadRpStatus();
   } catch (error) {
     if (status) status.textContent = "";
     showToast(apiFailure("Не удалось отправить ход", error));
+    loadRpStatus();
   } finally {
     if (sendButton) sendButton.disabled = false;
   }

@@ -3831,6 +3831,15 @@ html[data-auth-state="user"]:not(.auth-resolved) #auth-button * {
 .rp-composer textarea {
   width: 100%;
 }
+/* Limit notice shown in place of the composer when the daily RP allowance is out */
+.rp-limit-note {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-strong, #f1f1f9);
+  color: var(--text);
+  font-weight: 500;
+}
 @media (max-width: 720px) {
   .rp-layout {
     grid-template-columns: 1fr;

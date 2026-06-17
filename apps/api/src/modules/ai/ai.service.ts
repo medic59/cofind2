@@ -91,11 +91,17 @@ export class AiService {
     const enabled = await this.isEnabled();
     const limit = this.dailyLimit();
     const used = enabled ? await this.usageCount(userId, "all") : 0;
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isPremium: true } });
+    const isPremium = Boolean(user?.isPremium);
+    const rpLimit = isPremium ? this.rpDailyLimit() : this.rpFreeDailyLimit();
+    const rpUsed = enabled ? await this.usageCount(userId, "rp") : 0;
     return {
       enabled,
       provider: enabled ? (await this.resolveProvider()).name : null,
+      isPremium,
       dailyLimit: limit,
       remaining: Math.max(0, limit - used),
+      rp: { limit: rpLimit, used: rpUsed, remaining: Math.max(0, rpLimit - rpUsed) },
     };
   }
 
